@@ -5,6 +5,7 @@ def select_a(name):
     cur.execute('''
                 select * from sj
                 where name like %s
+                ''', (name,))
                 ''', (name,)) 
 
     rs = cur.fetchall()
