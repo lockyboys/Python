@@ -10,4 +10,4 @@ config={'user':'root',
 
 def get_Conn():             # config 딕셔어리를 connect메서드의 인자로 넣는다 생성 된 커넥션을 리턴.
     conn = mysql.connector.connect(**config)
-    return conn
+    return conn 

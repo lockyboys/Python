@@ -4,7 +4,7 @@ def create_table():
  conn = get_Conn()
  cur = conn.cursor()
  cur.execute('''
- create table sj(
+ create table sj( 
  name varchar(20),
  kor int,
  eng int,

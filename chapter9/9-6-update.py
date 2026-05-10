@@ -6,7 +6,7 @@ def update_a(name, jum):
     cur.execute('''
     update sj set kor=%s
     where name=%s''', (jum, name))
-    conn.commit()
+    conn.commit() 
     conn.close()
 
 if __name__ == '__main__':

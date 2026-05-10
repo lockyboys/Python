@@ -8,5 +8,5 @@ def delete_a(name):
     conn.commit()
     conn.close()
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     delete_a('이영희')
