@@ -5,6 +5,26 @@ import video_analyzer  # 영상 분석 모듈 연결
 import image_analyzer  # AI 이미지 분석 모듈 연결 (신규 추가!)
 
 def run_total_organization(path_str):
+    # [안전 장치 1] 경로가 비어있거나 공백인 경우 차단
+    if not path_str or not path_str.strip():
+        print("\n⚠️ 알림: 정리할 폴더 경로가 입력되지 않았습니다.")
+        print("프로그램을 안전하게 종료합니다.")
+        return
+
+    path = utils.validate_path(path_str)
+    if not path:
+        print(f"❌ 오류: '{path_str}' 경로를 찾을 수 없거나 유효하지 않습니다.")
+        return
+
+    # [안전 장치 2] 현재 스크립트가 실행 중인 폴더를 정리하려고 할 때 경고
+    current_dir = Path.cwd().absolute()
+    target_dir = path.absolute()
+    if current_dir == target_dir:
+        confirm = input(f"\n⚠️ 경고: 현재 스크립트가 있는 폴더({target_dir})를 정리하시겠습니까? (y/n): ")
+        if confirm.lower() != 'y':
+            print("작업을 취소합니다.")
+            return
+
     target = utils.validate_path(path_str)
     if not target:
         print("❌ 유효하지 않은 경로입니다.")

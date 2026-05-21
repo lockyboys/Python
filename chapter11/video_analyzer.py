@@ -5,7 +5,7 @@ import config
 import utils
 
 def group_videos(target_path):
-    """영상들을 시간대별로 그룹화하여 정리"""
+    """영상들을 시간대별로 그룹화하여 정리..."""
     target = Path(target_path)
     videos = []
     for ext in config.VIDEO_EXTENSIONS:
