@@ -3,6 +3,7 @@ import config
 import utils
 import video_analyzer  # 영상 분석 모듈 연결
 import image_analyzer  # AI 이미지 분석 모듈 연결 (신규 추가!)
+from pathlib import Path
 
 def run_total_organization(path_str):
     # [안전 장치 1] 경로가 비어있거나 공백인 경우 차단
