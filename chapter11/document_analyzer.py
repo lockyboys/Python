@@ -1,9 +1,10 @@
-# [document_analyzer.py] - 문서 분석 모듈 (v15 - Robust Error Handling)
+# [document_analyzer.py] - 문서 분석 모듈 (v17)
 import os
 import config
 import utils
 from pathlib import Path
 
+# 라이브러리 로드 및 상태 체크
 PDF_READY = False
 DOCX_READY = False
 EXCEL_READY = False
@@ -13,27 +14,27 @@ HWP_READY = False
 try:
     import fitz
     PDF_READY = True
-except Exception as e: utils.log_error(f"PDF 라이브러리 로드 실패: {e}", False)
+except Exception as e: utils.log_error(f"PDF 라이브러리(fitz) 로드 실패: {e}", False)
 
 try:
     from docx import Document
     DOCX_READY = True
-except Exception as e: utils.log_error(f"Word 라이브러리 로드 실패: {e}", False)
+except Exception as e: utils.log_error(f"Word 라이브러리(docx) 로드 실패: {e}", False)
 
 try:
     import openpyxl
     EXCEL_READY = True
-except Exception as e: utils.log_error(f"Excel 라이브러리 로드 실패: {e}", False)
+except Exception as e: utils.log_error(f"Excel 라이브러리(openpyxl) 로드 실패: {e}", False)
 
 try:
     from pptx import Presentation
     PPT_READY = True
-except Exception as e: utils.log_error(f"PPT 라이브러리 로드 실패: {e}", False)
+except Exception as e: utils.log_error(f"PPT 라이브러리(pptx) 로드 실패: {e}", False)
 
 try:
     import olefile
     HWP_READY = True
-except Exception as e: utils.log_error(f"HWP 라이브러리 로드 실패: {e}", False)
+except Exception as e: utils.log_error(f"HWP 라이브러리(olefile) 로드 실패: {e}", False)
 
 def extract_text(file_path):
     ext = file_path.suffix.lower()
@@ -86,13 +87,15 @@ def analyze_document_content(file_path):
 def run_document_organizing(target_path):
     target = Path(target_path)
     count = 0
-    print("📄 문서 내용 분석 엔진 가동 중...")
+    print("📄 문서 지능형 내용 분석 및 분류 중...")
     try:
-        search_pattern = '**/*' if config.RECURSIVE_SCAN else '*'
-        doc_files = [f for f in target.glob(search_pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
+        pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
+        doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
         for item in doc_files:
-            if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹', 'Group_')) for p in item.parents if p != target):
-                continue
+            if item.name in config.EXCLUDE_LIST: continue
+            if not config.UNPACK_ALL:
+                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹', 'Group_')) for p in item.parents if p != target):
+                    continue
             category = analyze_document_content(item)
             utils.move_file(item, target / category)
             count += 1
