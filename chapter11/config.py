@@ -1,6 +1,6 @@
-# [config.py] - 전체 시스템 설정 파일 (v14 - Document Support)
+# [config.py] - 전체 시스템 설정 파일 (v15 - Control & Logging)
 
-# 1. 키워드 기반 분류 규칙 (문서 내용 분석 시에도 사용됨)
+# 1. 키워드 기반 분류 규칙
 KEYWORD_RULES = {
     "01_중요문서": ["신분증", "계약서", "등록증", "확인서", "통지서", "등본", "신고필증", "검진", "영수증", "명세서", "증명원", "증명서", "인감", "주민등록", "운전면허", "여권", "건강보험", "국세", "지방세", "세금", "보험", "공과", "청구서", "청첩장", "통장", "카드", "정부", "공공기관", "행정", "법원", "검찰", "경찰", "소송", "판결", "증인", "계약", "게약"],
     "02_AI_생성": ["ChatGPT", "Gemini", "DALL-E", "Generated", "AI"],
@@ -30,12 +30,14 @@ IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".heic", ".webp"]
 VIDEO_EXTENSIONS = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"]
 DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".hwp", ".hwpx", ".txt"]
 
-# 4. 분석 설정 변수 (사용자가 직접 조절 가능)
+# 4. 분석 및 스캔 설정 변수
+# [스캔 범위 제어]
+RECURSIVE_SCAN = True       # True: 하위 폴더까지 모두 뒤짐 / False: 현재 폴더만 정리
+
 # [영상 분석]
 MINUTES_PER_FRAME = 10      # 몇 분당 1장의 사진을 추출할지
 MAX_FRAMES_PER_VIDEO = 20   # 한 영상당 최대 추출 장수
 
 # [문서 분석]
-MAX_DOC_TEXT_LENGTH = 5000  # 문서에서 읽어들일 최대 글자 수 (성능 최적화)
-SCAN_SUBFOLDERS = True      # 하위 폴더까지 깊은 스캔 여부
-FUZZY_MATCH_THRESHOLD = 80  # 키워드 유사도 매칭 임계값 (0~100)
+MAX_DOC_TEXT_LENGTH = 5000  # 문서에서 읽어들일 최대 글자 수
+FUZZY_MATCH_THRESHOLD = 80  # 키워드 유사도 매칭 임계값
