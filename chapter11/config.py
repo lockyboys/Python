@@ -1,12 +1,13 @@
-# [config.py] - 전체 시스템 설정 파일 (v24 - Image Priority)
+# [config.py] - 전체 시스템 설정 파일 (v25 - Logging Control)
 
 # 1. 경로 및 로그 설정
 BASE_LOG_DIR = r"C:\source\Python"
 LOG_FILE_PREFIX = "error_log"
 
-# 2. 스캔 및 해체 제어
-RECURSIVE_SCAN = True   # 하위 폴더까지 스캔 여부 (True: 전체 폴더, False: 최상위 폴더만)
-UNPACK_ALL = True       # 모든 압축 파일 해체 여부 (True: 모든 압축 파일 해체, False: 키워드/확장자 규칙에 따라 선택적으로 해체)
+# 2. 제어 변수 (사용자가 직접 변경 가능)
+RECURSIVE_SCAN = True      # 하위 폴더까지 스캔할지 여부
+UNPACK_ALL = False         # 하위 구조를 모두 해체할지 여부
+SHOW_PROGRESS = True       # 화면(콘솔)에 파일 이동 과정을 실시간으로 출력할지 여부
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 

@@ -1,4 +1,4 @@
-# [utils.py] - 공통 도구 및 정밀 보호 시스템 (v23 - Full Lock)
+# [utils.py] - 공통 도구 및 정밀 로깅 시스템 (v25)
 import os
 import shutil
 import datetime
@@ -21,27 +21,14 @@ def get_log_path():
     return _current_log_file
 
 def is_excluded(item_path):
-    """파일 이름 및 상위 모든 경로에 대해 제외 목록 포함 여부를 완벽하게 검사합니다."""
     path_obj = Path(item_path).absolute()
-    
-    # 1. 제외 목록 정규화 (대소문자 무시, 공백 제거)
     clean_exclude = [str(ex).strip().lower() for ex in config.EXCLUDE_LIST]
-    
-    # 2. 파일 이름 체크
-    if path_obj.name.lower() in clean_exclude:
-        return True
-        
-    # 3. 경로의 모든 구성 요소 체크 (상위 폴더들)
+    if path_obj.name.lower() in clean_exclude: return True
     for part in path_obj.parts:
-        if part.lower() in clean_exclude:
-            return True
-            
-    # 4. 전체 경로 문자열 내 포함 여부 체크 (부분 일치)
+        if part.lower() in clean_exclude: return True
     full_path_str = str(path_obj).lower()
     for ex in clean_exclude:
-        if ex and ex in full_path_str:
-            return True
-            
+        if ex and ex in full_path_str: return True
     return False
 
 def clean_filename_from_timestamps(filename):
@@ -50,10 +37,9 @@ def clean_filename_from_timestamps(filename):
     return cleaned
 
 def move_file(source, dest_dir):
+    """파일 이동 및 상세 로그 기록 (화면 출력은 선택적)"""
     try:
-        # [핵심] 이동 전 최종적으로 한 번 더 체크
-        if is_excluded(source):
-            return
+        if is_excluded(source): return
         
         dest_dir.mkdir(parents=True, exist_ok=True)
         pure_stem = clean_filename_from_timestamps(source.stem)
@@ -67,7 +53,13 @@ def move_file(source, dest_dir):
         for i in range(max_retries):
             try:
                 shutil.move(str(source), str(dest))
-                print(f"✅ {source.name} -> {dest_dir.name}/")
+                # 1. 화면(콘솔) 출력 여부 결정
+                status_msg = f"✅ {source.name} -> {dest_dir.name}/"
+                if config.SHOW_PROGRESS:
+                    print(status_msg)
+                
+                # 2. 로그 파일에 이동 기록 저장 (항상 기록)
+                log_message(f"MOVE_SUCCESS: {source.absolute()} -> {dest.absolute()}")
                 return
             except PermissionError:
                 if i < max_retries - 1: time.sleep(1)
@@ -100,8 +92,8 @@ def get_system_status():
     report.append(f"🖥️ 시스템 정밀 진단 보고서 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
     report.append("-" * 60)
     report.append(f"[스캔 모드] {'Deep Scan' if config.RECURSIVE_SCAN else 'Quick Scan'}")
+    report.append(f"[출력 모드] {'실시간 중계 활성' if config.SHOW_PROGRESS else '로그만 기록'}")
     report.append(f"[로그 경로] {get_log_path()}")
-    report.append(f"[보호 목록] {config.EXCLUDE_LIST}")
     report.append("=" * 60)
     full_report = "\n".join(report)
     print(full_report)
