@@ -6,8 +6,8 @@ LOG_FILE_PREFIX = "error_log"
 LOG_FILE_PATH = "error_log.txt"
 
 # 2. 스캔 및 해체 제어
-RECURSIVE_SCAN = True
-UNPACK_ALL = False
+RECURSIVE_SCAN = True   # 하위 폴더까지 스캔 여부
+UNPACK_ALL = True       # 모든 압축 파일 해체 여부 (True로 설정 시, '0_압축_파일' 폴더 내 모든 압축 파일을 해체)
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 

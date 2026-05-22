@@ -1,4 +1,4 @@
-# [utils.py] - 공통 도구 및 스마트 네이밍 시스템 (v22)
+# [utils.py] - 공통 도구 및 정밀 보호 시스템 (v23 - Full Lock)
 import os
 import shutil
 import datetime
@@ -21,40 +21,48 @@ def get_log_path():
     return _current_log_file
 
 def is_excluded(item_path):
-    path_obj = Path(item_path)
-    if path_obj.name in config.EXCLUDE_LIST: return True
-    for parent in path_obj.parents:
-        if parent.name in config.EXCLUDE_LIST: return True
-    path_str = str(item_path)
-    for ex in config.EXCLUDE_LIST:
-        if ex in path_str: return True
+    """파일 이름 및 상위 모든 경로에 대해 제외 목록 포함 여부를 완벽하게 검사합니다."""
+    path_obj = Path(item_path).absolute()
+    
+    # 1. 제외 목록 정규화 (대소문자 무시, 공백 제거)
+    clean_exclude = [str(ex).strip().lower() for ex in config.EXCLUDE_LIST]
+    
+    # 2. 파일 이름 체크
+    if path_obj.name.lower() in clean_exclude:
+        return True
+        
+    # 3. 경로의 모든 구성 요소 체크 (상위 폴더들)
+    for part in path_obj.parts:
+        if part.lower() in clean_exclude:
+            return True
+            
+    # 4. 전체 경로 문자열 내 포함 여부 체크 (부분 일치)
+    full_path_str = str(path_obj).lower()
+    for ex in clean_exclude:
+        if ex and ex in full_path_str:
+            return True
+            
     return False
 
 def clean_filename_from_timestamps(filename):
-    """파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거합니다."""
-    # 8자리 날짜와 6자리 시간 패턴 (_20240101_123456 또는 _123456 등)을 매칭
-    # 정규표현식: _20\d{6} (날짜) 또는 _\d{6} (시간)이 반복되는 것을 찾음
     pattern = r'(_20\d{6}|_\d{6})'
     cleaned = re.sub(pattern, '', filename)
     return cleaned
 
 def move_file(source, dest_dir):
-    """파일 이동 (중복 시 기존 시간 제거 후 최신 시간 1개만 유지)"""
     try:
-        if is_excluded(source): return
+        # [핵심] 이동 전 최종적으로 한 번 더 체크
+        if is_excluded(source):
+            return
         
         dest_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 1. 원본 파일명에서 지저분한 이전 시간 패턴 제거
         pure_stem = clean_filename_from_timestamps(source.stem)
         dest = dest_dir / f"{pure_stem}{source.suffix}"
         
-        # 2. 목적지에 이미 파일이 있다면 최신 시간 하나만 붙임
         if dest.exists():
             now = datetime.datetime.now().strftime("%H%M%S")
             dest = dest_dir / f"{pure_stem}_{now}{source.suffix}"
         
-        # 3. 파일 이동 (재시도 로직 포함)
         max_retries = 3
         for i in range(max_retries):
             try:
@@ -93,6 +101,7 @@ def get_system_status():
     report.append("-" * 60)
     report.append(f"[스캔 모드] {'Deep Scan' if config.RECURSIVE_SCAN else 'Quick Scan'}")
     report.append(f"[로그 경로] {get_log_path()}")
+    report.append(f"[보호 목록] {config.EXCLUDE_LIST}")
     report.append("=" * 60)
     full_report = "\n".join(report)
     print(full_report)
@@ -116,6 +125,6 @@ def mark_empty_folders(target_path):
 def validate_path(path_str):
     try:
         if not path_str: return None
-        p = Path(path_str)
+        p = Path(path_str).absolute()
         return p if p.exists() else None
     except: return None

@@ -1,4 +1,4 @@
-# [document_analyzer.py] - 문서 분석 모듈 (v19 - Encryption & Type Fix)
+# [document_analyzer.py] - 문서 분석 모듈 (v23 - Full Lock)
 import os
 import config
 import utils
@@ -14,22 +14,18 @@ try:
     import fitz
     PDF_READY = True
 except: pass
-
 try:
     from docx import Document
     DOCX_READY = True
 except: pass
-
 try:
     import openpyxl
     EXCEL_READY = True
 except: pass
-
 try:
     from pptx import Presentation
     PPT_READY = True
 except: pass
-
 try:
     import olefile
     HWP_READY = True
@@ -44,9 +40,7 @@ def extract_text(file_path):
                 text = f.read(config.MAX_DOC_TEXT_LENGTH)
         elif ext == ".pdf" and PDF_READY:
             doc = fitz.open(file_path)
-            if doc.is_encrypted:
-                utils.log_message(f"🔒 암호화된 PDF 제외: {file_path.name}")
-            else:
+            if not doc.is_encrypted:
                 for page in doc:
                     text += page.get_text()
                     if len(text) > config.MAX_DOC_TEXT_LENGTH: break
@@ -55,19 +49,6 @@ def extract_text(file_path):
             try:
                 doc = Document(file_path)
                 text = "\n".join([para.text for para in doc.paragraphs[:50]])
-            except Exception as e:
-                utils.log_message(f"⚠️ Word 파일 읽기 실패 (형식 불일치 가능성): {file_path.name}")
-        elif ext in [".xlsx", ".xls"] and EXCEL_READY:
-            try:
-                wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-                text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
-            except: pass
-        elif ext in [".pptx", ".ppt"] and PPT_READY:
-            try:
-                prs = Presentation(file_path)
-                for slide in prs.slides[:10]:
-                    for shape in slide.shapes:
-                        if hasattr(shape, "text"): text += shape.text + " "
             except: pass
         elif ext in [".hwp", ".hwpx"] and HWP_READY:
             try:
@@ -75,14 +56,16 @@ def extract_text(file_path):
                 if 'PrvText' in f.listdir():
                     text = f.openstream('PrvText').read().decode('utf-16', errors='ignore')
                 f.close()
-            except Exception as e:
-                utils.log_message(f"ℹ️ HWPX 또는 비표준 HWP 건너뜀: {file_path.name}")
+            except: pass
     except Exception as e:
         utils.log_error(f"문서 텍스트 추출 오류 ({file_path.name}): {e}")
     return text[:config.MAX_DOC_TEXT_LENGTH]
 
 def analyze_document_content(file_path):
     try:
+        # [핵심] 경로 기반 제외 체크
+        if utils.is_excluded(file_path): return None
+        
         name = file_path.name.lower()
         for folder, kws in config.KEYWORD_RULES.items():
             if any(kw.lower() in name for kw in kws): return folder
@@ -104,13 +87,16 @@ def run_document_organizing(target_path):
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
         doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
         for item in doc_files:
-            if item.name in config.EXCLUDE_LIST: continue
+            # [핵심] 경로 기반 제외 체크
+            if utils.is_excluded(item): continue
+            
             if not config.UNPACK_ALL:
-                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹', 'Group_')) for p in item.parents if p != target):
+                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
                     continue
             category = analyze_document_content(item)
-            utils.move_file(item, target / category)
-            count += 1
+            if category:
+                utils.move_file(item, target / category)
+                count += 1
     except Exception as e:
         utils.log_error(f"문서 정리 프로세스 오류: {e}")
     return count
