@@ -1,25 +1,35 @@
-import math
+# import tensorflow
 
-def solution(signals):
-    # 1. 모든 신호등의 주기를 계산하고, 탐색할 최대 범위를 정합니다.
-    # 각 주기(L)들의 최소공배수(LCM)를 구하면 더 정확하지만, 
-    # 문제 제한 사항이 작으므로 1,000,000 정도면 충분합니다.
+# #print(tf.config.list_physical_devices('GPU'))
+# import pytesseract
 
-    # 참고: LCM을 구하는 법
-    lcm = 1
-    for g, y, r in signals:
-        cycle = g + y + r
-        gcd_value = math.gcd(lcm, cycle)
-        lcm = (lcm * cycle) // math.gcd(lcm, cycle)
-    
-    return lcm
+# patients = [
+#     {"name": "김환자", "age": 65, "systolic": 145},
+#     {"name": "이환자", "age": 45, "systolic": 125},
+#     {"name": "박환자", "age": 32, "systolic": 115},
+#     {"name": "최환자", "age": 28, "systolic": 135},
+#     {"name": "정환자", "age": 70, "systolic": 190}
+# ]
 
-if __name__ == "__main__":
+# # 여기에 코드를 작성하세요
 
-    _signals = [
-        [ 2, 1, 2], #{"초록불": 2, "노랑불": 1, "빨강불": 2},
-        [ 5, 1, 1]  #{"초록불": 5, "노랑불": 1, "빨강불": 1}
-    ]
+# Norma_Systolic = 120
+# Prehyper_Systolic = 140
+# Stage1_Systolic = 160
 
-    result = solution(_signals)
-    print(result)
+# systolics = [patient["systolic"] for patient in patients]#patients.get('systolic')
+
+# print(systolics)
+
+# systolics =[ i+10 for i in range(10)] #[patient["systolic"] for patient in patients]#patients.get('systolic')
+
+# print(systolics)
+
+# result = [(f"{x}x{y}={x*y}" for x in range(2, 9) for y in range(1, 9)) if y % 9 == 0 else f"{'\\n'}"]
+
+# print(result)
+import tensorflow as tf
+
+print("TF 버전:", tf.__version__)
+print("CUDA 지원:", tf.test.is_built_with_cuda())
+print("GPU 목록:", tf.config.list_physical_devices('GPU'))
