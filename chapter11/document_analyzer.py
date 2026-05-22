@@ -51,7 +51,7 @@ def extract_text(file_path):
         elif ext in [".docx", ".doc"] and DOCX_READY:
             doc = Document(file_path)
             text = "\n".join([para.text for para in doc.paragraphs[:50]])
-        elif ext in [".xlsx", ".xls", ".cvs"] and EXCEL_READY:
+        elif ext in [".xlsx", ".xls"] and EXCEL_READY:
             wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
             text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
         elif ext in [".pptx", ".ppt"] and PPT_READY:
