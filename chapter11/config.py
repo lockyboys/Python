@@ -8,7 +8,7 @@ KEYWORD_RULES = {
 }
 
 EXTENSION_RULES = {
-    "07_압축_실행파일": [".zip", ".rar", ".7z", ".exe", ".msi", ".tar", ".gz"],
+    "07_압축_파일": [".zip", ".rar", ".7z", ".msi", ".tar", ".gz"],
     "08_일반_문서[PDF]": [".pdf"],
     "09_일반_문서[텍스트]": [".txt"],
     "10_일반_문서[MA-Office]": [".docx", ".doc", ".xlsx", ".xls", ".CSV", ".pptx", ".ppt"],
