@@ -1,83 +1,69 @@
-# [utils.py] - 공통 도구 및 정밀 진단 시스템 (v17)
+# [utils.py] - 공통 도구 및 정밀 폴더 관리 시스템 (v19)
 import os
 import shutil
 import datetime
 import traceback
+import time
 from pathlib import Path
 import config
 
+_current_log_file = None
+
+def get_log_path():
+    global _current_log_file
+    if _current_log_file is None:
+        now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_dir = Path(config.BASE_LOG_DIR)
+        try: base_dir.mkdir(parents=True, exist_ok=True)
+        except: base_dir = Path.cwd()
+        _current_log_file = base_dir / f"{config.LOG_FILE_PREFIX}_{now}.txt"
+    return _current_log_file
+
 def log_error(message, include_traceback=True):
-    """오류 내용을 로그 파일에 상세히 기록합니다. (이전 버전 호환성 유지)"""
     try:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_path = Path(config.LOG_FILE_PATH)
-        with open(log_path, "a", encoding="utf-8") as f:
+        with open(get_log_path(), "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] [ERROR] {message}\n")
             if include_traceback:
                 f.write(traceback.format_exc())
                 f.write("-" * 50 + "\n")
-    except Exception as e:
-        print(f"⚠️ 로그 기록 실패: {e}")
+    except: pass
 
 def log_message(message, level="INFO"):
-    """일반 메시지를 로그 파일에 기록합니다."""
     try:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_path = Path(config.LOG_FILE_PATH)
-        with open(log_path, "a", encoding="utf-8") as f:
+        with open(get_log_path(), "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] [{level}] {message}\n")
     except: pass
 
 def get_system_status():
-    """모든 라이브러리 및 하드웨어 상태를 정밀 진단하여 보고합니다."""
     report = []
     report.append("=" * 60)
     report.append(f"🖥️ 시스템 정밀 진단 보고서 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
     report.append("-" * 60)
-    
-    # 1. 스캔 및 제어 설정
     report.append(f"[스캔 모드] {'Deep Scan (하위 포함)' if config.RECURSIVE_SCAN else 'Quick Scan (현재 폴더만)'}")
-    report.append(f"[해체 모드] {'UNPACK ALL (전체 해체)' if config.UNPACK_ALL else '구조 유지'}")
-    report.append(f"[로그 경로] {config.LOG_FILE_PATH}")
+    report.append(f"[해체 모드] {'UNPACK ALL' if config.UNPACK_ALL else '구조 유지'}")
+    report.append(f"[로그 경로] {get_log_path()}")
     
-    # 2. GPU / CUDA / TensorFlow
     try:
         import tensorflow as tf
         report.append(f"[TensorFlow] 버전 {tf.__version__} - ✅ 로드 성공")
         gpus = tf.config.list_physical_devices('GPU')
         if gpus:
             report.append(f"[GPU/CUDA] ✅ NVIDIA GPU {len(gpus)}개 감지됨")
-            for i, gpu in enumerate(gpus):
-                report.append(f"   - 장치 [{i}]: {gpu.name}")
             report.append("[cuDNN] ✅ 가속 엔진 준비 완료")
-        else:
-            report.append("[GPU/CUDA] ℹ️ GPU 미감지 (CPU 모드로 작동)")
-    except Exception as e:
-        report.append(f"[TensorFlow/GPU] ❌ 진단 실패: {e}")
+        else: report.append("[GPU/CUDA] ℹ️ GPU 미감지")
+    except: report.append("[TensorFlow/GPU] ❌ 진단 실패")
 
-    # 3. OpenCV / 미디어
     try:
         import cv2
         report.append(f"[OpenCV] 버전 {cv2.__version__} - ✅ 정상")
-    except Exception as e:
-        report.append(f"[OpenCV] ❌ 로드 실패: {e}")
+    except: report.append("[OpenCV] ❌ 로드 실패")
 
-    # 4. OCR 엔진
     try:
         import pytesseract
-        ver = pytesseract.get_tesseract_version()
-        report.append(f"[Tesseract OCR] 버전 {ver} - ✅ 정상")
-    except Exception as e:
-        report.append(f"[Tesseract OCR] ❌ 엔진 미설치 또는 로드 실패: {e}")
-
-    # 5. 문서 분석 라이브러리
-    doc_libs = {"PyMuPDF(fitz)": "fitz", "python-docx": "docx", "openpyxl": "openpyxl", "python-pptx": "pptx", "olefile": "olefile"}
-    for name, mod in doc_libs.items():
-        try:
-            __import__(mod)
-            report.append(f"[{name}] ✅ 설치됨")
-        except:
-            report.append(f"[{name}] ⚠️ 미설치 (해당 포맷 분석 불가)")
+        report.append(f"[Tesseract OCR] ✅ 정상")
+    except: report.append("[Tesseract OCR] ❌ 로드 실패")
 
     report.append("=" * 60)
     full_report = "\n".join(report)
@@ -86,7 +72,7 @@ def get_system_status():
     return full_report
 
 def move_file(source, dest_dir):
-    """파일 이동 (중복 시 날짜_시간 추가)"""
+    """파일 이동 (중복 시 날짜_시간, 잠김 시 재시도)"""
     try:
         if source.name in config.EXCLUDE_LIST: return
         
@@ -94,11 +80,20 @@ def move_file(source, dest_dir):
         dest = dest_dir / source.name
         
         if dest.exists():
-            now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            now = datetime.datetime.now().strftime("%H%M%S")
             dest = dest_dir / f"{source.stem}_{now}{source.suffix}"
         
-        shutil.move(str(source), str(dest))
-        print(f"✅ {source.name} -> {dest_dir.name}/")
+        # 파일 잠김(PermissionError) 대응을 위한 재시도 로직
+        max_retries = 3
+        for i in range(max_retries):
+            try:
+                shutil.move(str(source), str(dest))
+                print(f"✅ {source.name} -> {dest_dir.name}/")
+                return
+            except PermissionError:
+                if i < max_retries - 1:
+                    time.sleep(1) # 1초 대기 후 재시도
+                else: raise
     except Exception as e:
         msg = f"이동 오류 ({source.name}): {str(e)}"
         print(f"❌ {msg}")
@@ -111,13 +106,13 @@ def mark_empty_folders(target_path):
             for d in dirs:
                 dir_path = Path(root) / d
                 if not d.endswith("_빈폴더") and not any(dir_path.iterdir()):
+                    # 번호가 붙은 시스템 생성 폴더는 마킹 제외
+                    if d[:2].isdigit() and "_" in d: continue
                     new_name = dir_path.parent / f"{d}_빈폴더"
-                    try:
-                        dir_path.rename(new_name)
-                        print(f"📁 빈 폴더 마킹: {d} -> {new_name.name}")
+                    try: dir_path.rename(new_name)
                     except: pass
     except Exception as e:
-        log_error(f"빈 폴더 마킹 중 오류: {e}")
+        log_error(f"빈 폴더 마킹 오류: {e}")
 
 def validate_path(path_str):
     try:

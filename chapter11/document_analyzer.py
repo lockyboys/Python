@@ -1,10 +1,9 @@
-# [document_analyzer.py] - 문서 분석 모듈 (v17)
+# [document_analyzer.py] - 문서 분석 모듈 (v19 - Encryption & Type Fix)
 import os
 import config
 import utils
 from pathlib import Path
 
-# 라이브러리 로드 및 상태 체크
 PDF_READY = False
 DOCX_READY = False
 EXCEL_READY = False
@@ -14,27 +13,27 @@ HWP_READY = False
 try:
     import fitz
     PDF_READY = True
-except Exception as e: utils.log_error(f"PDF 라이브러리(fitz) 로드 실패: {e}", False)
+except: pass
 
 try:
     from docx import Document
     DOCX_READY = True
-except Exception as e: utils.log_error(f"Word 라이브러리(docx) 로드 실패: {e}", False)
+except: pass
 
 try:
     import openpyxl
     EXCEL_READY = True
-except Exception as e: utils.log_error(f"Excel 라이브러리(openpyxl) 로드 실패: {e}", False)
+except: pass
 
 try:
     from pptx import Presentation
     PPT_READY = True
-except Exception as e: utils.log_error(f"PPT 라이브러리(pptx) 로드 실패: {e}", False)
+except: pass
 
 try:
     import olefile
     HWP_READY = True
-except Exception as e: utils.log_error(f"HWP 라이브러리(olefile) 로드 실패: {e}", False)
+except: pass
 
 def extract_text(file_path):
     ext = file_path.suffix.lower()
@@ -45,26 +44,39 @@ def extract_text(file_path):
                 text = f.read(config.MAX_DOC_TEXT_LENGTH)
         elif ext == ".pdf" and PDF_READY:
             doc = fitz.open(file_path)
-            for page in doc:
-                text += page.get_text()
-                if len(text) > config.MAX_DOC_TEXT_LENGTH: break
+            if doc.is_encrypted:
+                utils.log_message(f"🔒 암호화된 PDF 제외: {file_path.name}")
+            else:
+                for page in doc:
+                    text += page.get_text()
+                    if len(text) > config.MAX_DOC_TEXT_LENGTH: break
             doc.close()
         elif ext in [".docx", ".doc"] and DOCX_READY:
-            doc = Document(file_path)
-            text = "\n".join([para.text for para in doc.paragraphs[:50]])
+            try:
+                doc = Document(file_path)
+                text = "\n".join([para.text for para in doc.paragraphs[:50]])
+            except Exception as e:
+                utils.log_message(f"⚠️ Word 파일 읽기 실패 (형식 불일치 가능성): {file_path.name}")
         elif ext in [".xlsx", ".xls"] and EXCEL_READY:
-            wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-            text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
+            try:
+                wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+                text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
+            except: pass
         elif ext in [".pptx", ".ppt"] and PPT_READY:
-            prs = Presentation(file_path)
-            for slide in prs.slides[:10]:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"): text += shape.text + " "
+            try:
+                prs = Presentation(file_path)
+                for slide in prs.slides[:10]:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"): text += shape.text + " "
+            except: pass
         elif ext in [".hwp", ".hwpx"] and HWP_READY:
-            f = olefile.OleFileIO(file_path)
-            if 'PrvText' in f.listdir():
-                text = f.openstream('PrvText').read().decode('utf-16', errors='ignore')
-            f.close()
+            try:
+                f = olefile.OleFileIO(file_path)
+                if 'PrvText' in f.listdir():
+                    text = f.openstream('PrvText').read().decode('utf-16', errors='ignore')
+                f.close()
+            except Exception as e:
+                utils.log_message(f"ℹ️ HWPX 또는 비표준 HWP 건너뜀: {file_path.name}")
     except Exception as e:
         utils.log_error(f"문서 텍스트 추출 오류 ({file_path.name}): {e}")
     return text[:config.MAX_DOC_TEXT_LENGTH]
@@ -87,7 +99,7 @@ def analyze_document_content(file_path):
 def run_document_organizing(target_path):
     target = Path(target_path)
     count = 0
-    print("📄 문서 지능형 내용 분석 및 분류 중...")
+    print("📄 문서 지능형 내용 분석 중...")
     try:
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
         doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
