@@ -1,21 +1,21 @@
-# [config.py] - 전체 시스템 설정 파일 (v19 - Numbering & Fix)
+# [config.py] - 전체 시스템 설정 파일 (v20 - Priority & Image Fix)
 
 # 1. 경로 및 로그 설정
 BASE_LOG_DIR = r"C:\source\Python"
 LOG_FILE_PREFIX = "error_log"
-LOG_FILE_PATH = "error_log.txt"  # 호환성을 위해 다시 추가
+LOG_FILE_PATH = "error_log.txt"
 
 # 2. 스캔 및 해체 제어
 RECURSIVE_SCAN = True
-UNPACK_ALL = True
+UNPACK_ALL = False
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 
     "image_analyzer.py", "document_analyzer.py", "gpu_setup_guide.md", 
-    "zlibwapi_fix_guide.md", "오피스 2016" 
+    "zlibwapi_fix_guide.md", "오피스 2016"
 ]
 
-# 3. 통합 폴더 번호 체계 (중복 방지를 위해 번호를 명확히 지정)
+# 3. 키워드 기반 분류 규칙 (문서 및 중요 파일용)
 KEYWORD_RULES = {
     "01_중요문서": ["신분증", "계약서", "등록증", "확인서", "통지서", "등본", "신고필증", "검진", "영수증", "명세서", "증명원", "증명서", "인감", "주민등록", "운전면허", "여권", "건강보험", "국세", "지방세", "세금", "보험", "공과", "청구서", "청첩장", "통장", "카드", "정부", "공공기관", "행정", "법원", "검찰", "경찰", "소송", "판결", "증인", "계약", "게약"],
     "02_AI_생성": ["ChatGPT", "Gemini", "DALL-E", "Generated", "AI"],
@@ -24,9 +24,8 @@ KEYWORD_RULES = {
     "05_금융_법률": ["은행", "복권", "행정소송", "법", "전세", "보험", "주식", "투자", "가계부"]
 }
 
-# 4. 확장자 기반 분류 규칙 (번호 순서대로 정리)
+# 4. 확장자 기반 분류 규칙
 EXTENSION_RULES = {
-    "06_영상_그룹": [], # 비디오 분석 결과용
     "07_압축_파일": [".zip", ".rar", ".7z", ".tar", ".gz"],
     "08_일반_문서[PDF]": [".pdf"],
     "09_일반_문서[텍스트]": [".txt"],
@@ -38,8 +37,7 @@ EXTENSION_RULES = {
     "15_프로그램파일[기타]": [".java", ".class", ".sql", ".yaml", ".yml", ".md"],
     "16_시스템파일": [".ini", ".dll", ".msg", ".sys", ".tmp"],
     "17_실행파일": [".exe", ".bat", ".ps1", ".msi", ".msix"],
-    "18_백업_및_기타": [".bak", ".old", ".log"],
-    "19_일반_사진": [] # 이미지 분석 결과용
+    "18_백업_및_기타": [".bak", ".old", ".log"]
 }
 
 # 5. 미디어 확장자 정의

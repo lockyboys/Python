@@ -1,9 +1,10 @@
-# [utils.py] - 공통 도구 및 정밀 폴더 관리 시스템 (v19)
+# [utils.py] - 공통 도구 및 스마트 네이밍 시스템 (v22)
 import os
 import shutil
 import datetime
 import traceback
 import time
+import re
 from pathlib import Path
 import config
 
@@ -18,6 +19,55 @@ def get_log_path():
         except: base_dir = Path.cwd()
         _current_log_file = base_dir / f"{config.LOG_FILE_PREFIX}_{now}.txt"
     return _current_log_file
+
+def is_excluded(item_path):
+    path_obj = Path(item_path)
+    if path_obj.name in config.EXCLUDE_LIST: return True
+    for parent in path_obj.parents:
+        if parent.name in config.EXCLUDE_LIST: return True
+    path_str = str(item_path)
+    for ex in config.EXCLUDE_LIST:
+        if ex in path_str: return True
+    return False
+
+def clean_filename_from_timestamps(filename):
+    """파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거합니다."""
+    # 8자리 날짜와 6자리 시간 패턴 (_20240101_123456 또는 _123456 등)을 매칭
+    # 정규표현식: _20\d{6} (날짜) 또는 _\d{6} (시간)이 반복되는 것을 찾음
+    pattern = r'(_20\d{6}|_\d{6})'
+    cleaned = re.sub(pattern, '', filename)
+    return cleaned
+
+def move_file(source, dest_dir):
+    """파일 이동 (중복 시 기존 시간 제거 후 최신 시간 1개만 유지)"""
+    try:
+        if is_excluded(source): return
+        
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 1. 원본 파일명에서 지저분한 이전 시간 패턴 제거
+        pure_stem = clean_filename_from_timestamps(source.stem)
+        dest = dest_dir / f"{pure_stem}{source.suffix}"
+        
+        # 2. 목적지에 이미 파일이 있다면 최신 시간 하나만 붙임
+        if dest.exists():
+            now = datetime.datetime.now().strftime("%H%M%S")
+            dest = dest_dir / f"{pure_stem}_{now}{source.suffix}"
+        
+        # 3. 파일 이동 (재시도 로직 포함)
+        max_retries = 3
+        for i in range(max_retries):
+            try:
+                shutil.move(str(source), str(dest))
+                print(f"✅ {source.name} -> {dest_dir.name}/")
+                return
+            except PermissionError:
+                if i < max_retries - 1: time.sleep(1)
+                else: raise
+    except Exception as e:
+        msg = f"이동 오류 ({source.name}): {str(e)}"
+        print(f"❌ {msg}")
+        log_error(msg)
 
 def log_error(message, include_traceback=True):
     try:
@@ -41,72 +91,21 @@ def get_system_status():
     report.append("=" * 60)
     report.append(f"🖥️ 시스템 정밀 진단 보고서 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
     report.append("-" * 60)
-    report.append(f"[스캔 모드] {'Deep Scan (하위 포함)' if config.RECURSIVE_SCAN else 'Quick Scan (현재 폴더만)'}")
-    report.append(f"[해체 모드] {'UNPACK ALL' if config.UNPACK_ALL else '구조 유지'}")
+    report.append(f"[스캔 모드] {'Deep Scan' if config.RECURSIVE_SCAN else 'Quick Scan'}")
     report.append(f"[로그 경로] {get_log_path()}")
-    
-    try:
-        import tensorflow as tf
-        report.append(f"[TensorFlow] 버전 {tf.__version__} - ✅ 로드 성공")
-        gpus = tf.config.list_physical_devices('GPU')
-        if gpus:
-            report.append(f"[GPU/CUDA] ✅ NVIDIA GPU {len(gpus)}개 감지됨")
-            report.append("[cuDNN] ✅ 가속 엔진 준비 완료")
-        else: report.append("[GPU/CUDA] ℹ️ GPU 미감지")
-    except: report.append("[TensorFlow/GPU] ❌ 진단 실패")
-
-    try:
-        import cv2
-        report.append(f"[OpenCV] 버전 {cv2.__version__} - ✅ 정상")
-    except: report.append("[OpenCV] ❌ 로드 실패")
-
-    try:
-        import pytesseract
-        report.append(f"[Tesseract OCR] ✅ 정상")
-    except: report.append("[Tesseract OCR] ❌ 로드 실패")
-
     report.append("=" * 60)
     full_report = "\n".join(report)
     print(full_report)
     log_message("\n" + full_report, "DIAGNOSTIC")
     return full_report
 
-def move_file(source, dest_dir):
-    """파일 이동 (중복 시 날짜_시간, 잠김 시 재시도)"""
-    try:
-        if source.name in config.EXCLUDE_LIST: return
-        
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / source.name
-        
-        if dest.exists():
-            now = datetime.datetime.now().strftime("%H%M%S")
-            dest = dest_dir / f"{source.stem}_{now}{source.suffix}"
-        
-        # 파일 잠김(PermissionError) 대응을 위한 재시도 로직
-        max_retries = 3
-        for i in range(max_retries):
-            try:
-                shutil.move(str(source), str(dest))
-                print(f"✅ {source.name} -> {dest_dir.name}/")
-                return
-            except PermissionError:
-                if i < max_retries - 1:
-                    time.sleep(1) # 1초 대기 후 재시도
-                else: raise
-    except Exception as e:
-        msg = f"이동 오류 ({source.name}): {str(e)}"
-        print(f"❌ {msg}")
-        log_error(msg)
-
 def mark_empty_folders(target_path):
-    """빈 폴더를 찾아 '_빈폴더' 마킹 추가"""
     try:
         for root, dirs, files in os.walk(target_path, topdown=False):
             for d in dirs:
                 dir_path = Path(root) / d
+                if is_excluded(dir_path): continue
                 if not d.endswith("_빈폴더") and not any(dir_path.iterdir()):
-                    # 번호가 붙은 시스템 생성 폴더는 마킹 제외
                     if d[:2].isdigit() and "_" in d: continue
                     new_name = dir_path.parent / f"{d}_빈폴더"
                     try: dir_path.rename(new_name)
