@@ -1,13 +1,12 @@
-# [config.py] - 전체 시스템 설정 파일 (v20 - Priority & Image Fix)
+# [config.py] - 전체 시스템 설정 파일 (v24 - Image Priority)
 
 # 1. 경로 및 로그 설정
 BASE_LOG_DIR = r"C:\source\Python"
 LOG_FILE_PREFIX = "error_log"
-LOG_FILE_PATH = "error_log.txt"
 
 # 2. 스캔 및 해체 제어
-RECURSIVE_SCAN = True   # 하위 폴더까지 스캔 여부
-UNPACK_ALL = True       # 모든 압축 파일 해체 여부 (True로 설정 시, '0_압축_파일' 폴더 내 모든 압축 파일을 해체)
+RECURSIVE_SCAN = True   # 하위 폴더까지 스캔 여부 (True: 전체 폴더, False: 최상위 폴더만)
+UNPACK_ALL = True       # 모든 압축 파일 해체 여부 (True: 모든 압축 파일 해체, False: 키워드/확장자 규칙에 따라 선택적으로 해체)
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 
@@ -15,12 +14,12 @@ EXCLUDE_LIST = [
     "zlibwapi_fix_guide.md", "오피스 2016"
 ]
 
-# 3. 키워드 기반 분류 규칙 (문서 및 중요 파일용)
+# 3. 키워드 기반 분류 규칙 (문서용)
 KEYWORD_RULES = {
     "01_중요문서": ["신분증", "계약서", "등록증", "확인서", "통지서", "등본", "신고필증", "검진", "영수증", "명세서", "증명원", "증명서", "인감", "주민등록", "운전면허", "여권", "건강보험", "국세", "지방세", "세금", "보험", "공과", "청구서", "청첩장", "통장", "카드", "정부", "공공기관", "행정", "법원", "검찰", "경찰", "소송", "판결", "증인", "계약", "게약"],
     "02_AI_생성": ["ChatGPT", "Gemini", "DALL-E", "Generated", "AI"],
     "03_업무_프로젝트": ["GECKO", "공공근로", "팸플릿", "포스터", "poster", "사업자", "기획", "보고서", "발표", "회의"],
-    "04_메신저": ["KakaoTalk", "LINE", "카톡", "라인", "photo_", "IMG_"],
+    "04_메신저": ["KakaoTalk", "LINE", "카톡", "라인"],
     "05_금융_법률": ["은행", "복권", "행정소송", "법", "전세", "보험", "주식", "투자", "가계부"]
 }
 
@@ -49,4 +48,3 @@ DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"
 MINUTES_PER_FRAME = 10
 MAX_FRAMES_PER_VIDEO = 20
 MAX_DOC_TEXT_LENGTH = 5000
-FUZZY_MATCH_THRESHOLD = 80

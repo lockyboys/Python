@@ -1,4 +1,4 @@
-# [main_organizer.py] - 전체 시스템 통합 실행 파일 (v21 - Full Path Protection)
+# [main_organizer.py] - 전체 시스템 통합 실행 파일 (v24 - Image First)
 import os
 import sys
 import config
@@ -18,19 +18,19 @@ def run_total_organization(path_str):
         utils.get_system_status()
         print(f"\n📂 정리 대상: {path_str}")
 
-        # 1. 영상 분석
-        print("\n--- [단계 1] 영상 지능형 분석 및 그룹화 ---")
-        v_count = video_analyzer.group_videos(path)
-
-        # 2. 이미지 분석 (AI_TF_분석결과)
-        print("\n--- [단계 2] AI 이미지 정밀 내용 분석 및 분류 ---")
+        # [단계 1] 이미지 분석 (가장 먼저 실행하여 AI 분류 정밀도 확보)
+        print("\n--- [단계 1] AI 이미지 정밀 내용 분석 및 분류 ---")
         i_count = image_analyzer.run_image_ai_organizing(path)
 
-        # 3. 문서 분석
+        # [단계 2] 영상 분석
+        print("\n--- [단계 2] 영상 지능형 분석 및 그룹화 ---")
+        v_count = video_analyzer.group_videos(path)
+
+        # [단계 3] 문서 분석
         print("\n--- [단계 3] 문서 지능형 내용 분석 및 분류 ---")
         d_count = document_analyzer.run_document_organizing(path)
         
-        # 4. 기타 파일 싹쓸이
+        # [단계 4] 기타 파일 싹쓸이
         print("\n--- [단계 4] 기타 파일 싹쓸이 및 정리 ---")
         f_count = 0
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
@@ -38,21 +38,21 @@ def run_total_organization(path_str):
         
         for item in all_files:
             try:
-                # [개선] 경로 전체를 체크하여 제외 폴더 내 파일 보호
-                if utils.is_excluded(item):
-                    continue
+                if utils.is_excluded(item): continue
                 
                 if not config.UNPACK_ALL:
                     if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != path):
                         continue
                 
                 moved = False
+                # 키워드 규칙 적용
                 for folder, kws in config.KEYWORD_RULES.items():
                     if any(kw.lower() in item.name.lower() for kw in kws):
                         utils.move_file(item, path / folder)
                         moved = True
                         break
                 
+                # 확장자 규칙 적용
                 if not moved:
                     for folder, exts in config.EXTENSION_RULES.items():
                         if item.suffix.lower() in exts:
@@ -60,6 +60,7 @@ def run_total_organization(path_str):
                             moved = True
                             break
                 
+                # 최종 미분류 처리
                 if not moved:
                     if item.suffix.lower() in config.IMAGE_EXTENSIONS:
                         utils.move_file(item, path / "AI_TF_분석결과" / "09_일반_사진")
@@ -70,12 +71,12 @@ def run_total_organization(path_str):
             except Exception as e:
                 utils.log_error(f"파일 처리 오류 ({item.name}): {e}")
 
-        # 5. 빈 폴더 관리
+        # [단계 5] 빈 폴더 관리
         print("\n--- [단계 5] 빈 폴더 사후 관리 ---")
         utils.mark_empty_folders(path)
 
         print(f"\n✅ 전체 정리 완료!")
-        print(f"📊 통계: 영상 {v_count}개, 이미지 {i_count}개, 문서 {d_count}개, 기타 {f_count}개")
+        print(f"📊 통계: 이미지 {i_count}개, 영상 {v_count}개, 문서 {d_count}개, 기타 {f_count}개")
         print(f"📝 상세 로그는 '{utils.get_log_path()}'를 확인하세요.")
         
     except Exception as e:
