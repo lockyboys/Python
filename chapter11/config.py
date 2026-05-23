@@ -1,13 +1,48 @@
 # [config.py] - 전체 시스템 설정 파일 (v25 - Logging Control)
 
-# 1. 경로 및 로그 설정
+from pathlib import Path
+from datetime import datetime
+
+# =========================
+# 스캔 설정
+# =========================
+
+RECURSIVE_SCAN = True
+UNPACK_ALL = True
+
+# =========================
+# 화면 출력
+# =========================
+
+SHOW_PROGRESS = True
+SHOW_DIAGNOSTIC = True
+
+# =========================
+# 폴더 이름
+# =========================
+
+EMPTY_FOLDER_NAME = "_빈폴더"
+
+# =========================
+# 로그 경로
+# =========================
+
+# BASE_DIR = Path(__file__).resolve().parent
+
+# LOG_DIR = BASE_DIR
+
+
 BASE_LOG_DIR = r"C:\source\Python"
+
 LOG_FILE_PREFIX = "error_log"
 
-# 2. 제어 변수 (사용자가 직접 변경 가능)
-RECURSIVE_SCAN = True      # 하위 폴더까지 스캔할지 여부
-UNPACK_ALL = True         # 하위 구조를 모두 해체할지 여부
-SHOW_PROGRESS = True       # 화면(콘솔)에 파일 이동 과정을 실시간으로 출력할지 여부
+CURRENT_LOG_FILE = ""
+
+CURRENT_LOG_FILE = (
+    f"{LOG_FILE_PREFIX}_"
+    f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+)
+
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 

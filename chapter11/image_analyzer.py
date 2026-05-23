@@ -3,6 +3,7 @@ import os
 import utils
 import config
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 AI_READY = False
 TF_READY = False
@@ -12,6 +13,8 @@ try:
     import numpy as np
     from PIL import Image
     import tensorflow as tf
+    tf.config.threading.set_inter_op_parallelism_threads(4)
+    tf.config.threading.set_intra_op_parallelism_threads(4)
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
         for gpu in gpus: tf.config.experimental.set_memory_growth(gpu, True)
@@ -41,26 +44,98 @@ AI_CATEGORIES = {
     "06_기타_이미지": []
 }
 
+# def analyze_image_final(image_path):
+
+#     try:
+
+#         if utils.is_excluded(image_path):
+#             return None
+
+#         # ⭐ 작은 파일은 AI 안 돌림
+#         if image_path.stat().st_size < 30000:
+#             return "09_일반_사진"
+
+#         # ⭐ 파일명 우선 검사
+#         name = image_path.name.lower()
+
+#         for folder, kws in config.KEYWORD_RULES.items():
+#             if any(kw.lower() in name for kw in kws):
+#                 return folder
+
+#         # ⭐ AI 분석
+#         if TF_READY:
+
+#             global model
+
+#             if model is None:
+#                 load_tf_model()
+
+#             img = Image.open(image_path).convert('RGB')
+
+#             # ⭐ 강제 크기 고정
+#             img = img.resize((224, 224))
+
+#             x = preprocess_input(
+#                 np.expand_dims(
+#                     tf.keras.preprocessing.image.img_to_array(img),
+#                     axis=0
+#                 )
+#             )
+
+#             preds = model.predict(x, verbose=0)
+
+#             results = decode_predictions(preds, top=3)[0]
+
+#             for _, label, score in results:
+
+#                 # ⭐ 정확도 낮으면 무시
+#                 if score < 0.45:
+#                     continue
+
+#                 label = label.lower()
+
+#                 for category, keywords in AI_CATEGORIES.items():
+#                     if any(kw in label for kw in keywords):
+#                         return category
+
+#     except Exception as e:
+#         utils.log_error(f"이미지 분석 오류 ({image_path.name}): {e}")
+
+#     return "09_일반_사진"
+
 def analyze_image_final(image_path):
 
     try:
+
         if utils.is_excluded(image_path):
             return None
 
-        # 1. 파일명 우선
+        # 작은 파일은 AI 분석 안 함
+        if image_path.stat().st_size < 30000:
+            return "09_일반_사진"
+
+        # 파일명 우선 검사
         name = image_path.name.lower()
 
         for folder, kws in config.KEYWORD_RULES.items():
-            if any(kw.lower() in name for kw in kws):
+
+            if any(
+                kw.lower() in name
+                for kw in kws
+            ):
                 return folder
 
-        # 2. AI 분석
         if TF_READY:
+
+            global model
 
             if model is None:
                 load_tf_model()
 
-            img = Image.open(image_path).convert('RGB').resize((224, 224))
+            img = Image.open(image_path).convert('RGB')
+
+            # 크기 고정
+            img = img.resize((224, 224))
 
             x = preprocess_input(
                 np.expand_dims(
@@ -70,7 +145,11 @@ def analyze_image_final(image_path):
             )
 
             preds = model.predict(x, verbose=0)
-            results = decode_predictions(preds, top=3)[0]
+
+            results = decode_predictions(
+                preds,
+                top=3
+            )[0]
 
             for _, label, score in results:
 
@@ -81,43 +160,114 @@ def analyze_image_final(image_path):
                 label = label.lower()
 
                 for category, keywords in AI_CATEGORIES.items():
-                    if any(kw in label for kw in keywords):
+
+                    if any(
+                        kw in label
+                        for kw in keywords
+                    ):
                         return category
 
     except Exception as e:
-        utils.log_error(f"이미지 분석 오류 ({image_path.name}): {e}")
+        utils.log_error(
+            f"이미지 분석 오류 ({image_path.name}): {e}"
+        )
 
     return "09_일반_사진"
 
-def run_image_ai_organizing(target_path):
-    target = Path(target_path)
-    count = 0
-    ai_root = target / "AI_TF_분석결과"
-    print("🧠 AI 이미지 정밀 분석 중 (동물, 풍경, 음식 등)...")
-    
+# def process_single_image(args):
+
+#     item, target = args
+
+#     try:
+#         category = analyze_image_final(item)
+
+#         if not category:
+#             return 0
+
+#         ai_root = target / "AI_TF_분석결과"
+
+#         # AI 카테고리
+#         if category in AI_CATEGORIES or category == "09_일반_사진":
+#             utils.move_file(item, ai_root / category)
+
+#         else:
+#             utils.move_file(item, target / category)
+
+#         return 1
+
+#     except Exception as e:
+#         utils.log_error(f"이미지 처리 오류 ({item.name}): {e}")
+#         return 0
+
+def process_single_image(args):
+
+    item, target = args
+
     try:
-        pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
-        img_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.IMAGE_EXTENSIONS]
-        
-        for item in img_files:
-            if utils.is_excluded(item): continue
-            
-            # 이미 분류된 폴더 제외 (해체 모드가 아닐 때)
-            if not config.UNPACK_ALL:
-                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
-                    continue
-            
-            category = analyze_image_final(item)
-            if not category: continue
-            
-            # AI 분류 결과는 무조건 AI_TF_분석결과 폴더 하위로
-            if category in AI_CATEGORIES or category == "09_일반_사진":
-                utils.move_file(item, ai_root / category)
-            else:
-                # 키워드 기반 결과는 루트 하위로
-                utils.move_file(item, target / category)
-            
-            count += 1
+        category = analyze_image_final(item)
+
+        if not category:
+            return 0
+
+        ai_root = target / "AI_TF_분석결과"
+
+        utils.move_file(
+            item,
+            ai_root / category
+        )
+
+        return 1
+
     except Exception as e:
-        utils.log_error(f"이미지 AI 정리 프로세스 오류: {e}")
+
+        utils.log_error(
+            f"이미지 처리 오류 ({item.name}): {e}"
+        )
+
+        return 0
+
+
+def run_image_ai_organizing(
+    target_path,
+    img_files
+):
+
+    target = Path(target_path)
+
+    count = 0
+
+    print("🧠 멀티스레드 이미지 분석 중...")
+
+    # ⭐ 동시에 4개 처리
+    with ThreadPoolExecutor(
+        max_workers=4
+    ) as executor:
+
+        results = executor.map(
+            process_single_image,
+            [(item, target) for item in img_files]
+        )
+
+        count = sum(results)
+
     return count
+
+# def run_image_ai_organizing(target_path, img_files):
+
+#     target = Path(target_path)
+
+#     print("🧠 멀티스레드 이미지 분석 중...")
+
+#     count = 0
+
+#     # ⭐ 컴퓨터 4명이 동시에 일함
+#     with ThreadPoolExecutor(max_workers=4) as executor:
+
+#         results = executor.map(
+#             process_single_image,
+#             [(item, target) for item in img_files]
+#         )
+
+#         count = sum(results)
+
+#     return count

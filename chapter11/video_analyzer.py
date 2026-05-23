@@ -1,41 +1,46 @@
 # [video_analyzer.py] - 영상 분석 모듈 (v15 - Robust Error Handling)
 import os
 import cv2
+import shutil
+import utils
+
+import config
+import image_analyzer
+
 from pathlib import Path
 from datetime import datetime, timedelta
-import config
-import utils
-import image_analyzer
 from collections import Counter
+from pathlib import Path
 
-def group_videos(target_path):
+def group_videos(target_path, video_files):
+
     target = Path(target_path)
-    videos = []
-    
-    try:
-        search_pattern = '**/*' if config.RECURSIVE_SCAN else '*'
-        for f in target.glob(search_pattern):
-            if f.is_file() and f.suffix.lower() in config.VIDEO_EXTENSIONS:
-                if any(p.name.startswith(('0', '영상_그룹')) for p in f.parents if p != target):
-                    continue
-                videos.append({'path': f, 'time': datetime.fromtimestamp(f.stat().st_mtime)})
-        
-        if not videos: return 0
-        videos.sort(key=lambda x: x['time'])
 
-        count = 0
-        current_group = [videos[0]]
-        for i in range(1, len(videos)):
-            if (videos[i]['time'] - videos[i-1]['time']) < timedelta(hours=4):
-                current_group.append(videos[i])
-            else:
-                count += _process_video_group(target, current_group)
-                current_group = [videos[i]]
-        count += _process_video_group(target, current_group)
-        return count
-    except Exception as e:
-        utils.log_error(f"영상 그룹화 프로세스 오류: {e}")
-        return 0
+    video_root = target / "06_영상_그룹"
+
+    moved_count = 0
+
+    for f in video_files:
+
+        try:
+            if utils.is_excluded(f):
+                continue
+
+            ext = f.suffix.lower()
+
+            # 확장자별 폴더
+            dest_dir = video_root / ext.replace('.', '').upper()
+
+            utils.move_file(f, dest_dir)
+
+            moved_count += 1
+
+        except Exception as e:
+            utils.log_error(
+                f"영상 처리 오류 ({f.name}): {e}"
+            )
+
+    return moved_count
 
 def _process_video_group(target, group):
     try:
