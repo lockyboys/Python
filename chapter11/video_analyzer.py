@@ -93,4 +93,3 @@ def _analyze_video_multi_frames(video_path):
     except Exception as e:
         utils.log_error(f"영상 개별 분석 오류 ({video_path.name}): {e}")
     return categories
-
