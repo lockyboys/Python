@@ -16,7 +16,7 @@ try:
     if gpus:
         for gpu in gpus: tf.config.experimental.set_memory_growth(gpu, True)
         GPU_ACTIVE = True
-    from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input, decode_predictions
+    from tensorflow.keras.applications.efficientnet import EfficientNetB0, preprocess_input, decode_predictions
     TF_READY = True
     AI_READY = True
 except: pass
@@ -27,13 +27,13 @@ def load_tf_model():
     global model
     if not TF_READY: return
     try:
-        model = MobileNetV2(weights='imagenet')
+        model = EfficientNetB0(weights='imagenet')
     except Exception as e:
         utils.log_error(f"TF 모델 로딩 실패: {e}")
 
 # [복구] 사용자님이 가장 만족하셨던 정밀 카테고리 체계
 AI_CATEGORIES = {
-    "01_중요문서_및_행정": ["envelope", "web_site", "menu", "book_jacket", "crossword_puzzle", "id_card", "passport"],
+    "01_중요문서_및_행정": ["id_card", "passport", "envelope"],
     "02_동물_및_생물": ["dog", "cat", "bird", "fish", "butterfly", "insect", "animal", "pet", "lion", "tiger", "bear"],
     "03_풍경_및_자연": ["valley", "mountain", "alp", "volcano", "promontory", "lakeside", "seashore", "ocean", "tree", "forest", "sky", "cloud"],
     "04_음식_및_요리": ["food", "plate", "dish", "burrito", "pizza", "guacamole", "ice_cream", "bakery", "cake", "fruit"],
@@ -42,30 +42,51 @@ AI_CATEGORIES = {
 }
 
 def analyze_image_final(image_path):
+
     try:
-        if utils.is_excluded(image_path): return None
-        
-        # [우선순위 변경] AI 분석을 먼저 시도하여 정밀하게 분류
+        if utils.is_excluded(image_path):
+            return None
+
+        # 1. 파일명 우선
+        name = image_path.name.lower()
+
+        for folder, kws in config.KEYWORD_RULES.items():
+            if any(kw.lower() in name for kw in kws):
+                return folder
+
+        # 2. AI 분석
         if TF_READY:
-            if model is None: load_tf_model()
+
+            if model is None:
+                load_tf_model()
+
             img = Image.open(image_path).convert('RGB').resize((224, 224))
-            x = preprocess_input(np.expand_dims(tf.keras.preprocessing.image.img_to_array(img), axis=0))
+
+            x = preprocess_input(
+                np.expand_dims(
+                    tf.keras.preprocessing.image.img_to_array(img),
+                    axis=0
+                )
+            )
+
             preds = model.predict(x, verbose=0)
             results = decode_predictions(preds, top=3)[0]
-            
+
             for _, label, score in results:
+
+                # 정확도 낮으면 무시
+                if score < 0.45:
+                    continue
+
                 label = label.lower()
+
                 for category, keywords in AI_CATEGORIES.items():
                     if any(kw in label for kw in keywords):
                         return category
-        
-        # AI 결과가 명확하지 않을 때만 키워드 체크
-        name = image_path.name.lower()
-        for folder, kws in config.KEYWORD_RULES.items():
-            if any(kw.lower() in name for kw in kws): return folder
 
     except Exception as e:
         utils.log_error(f"이미지 분석 오류 ({image_path.name}): {e}")
+
     return "09_일반_사진"
 
 def run_image_ai_organizing(target_path):

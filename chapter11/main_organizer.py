@@ -16,6 +16,10 @@ def run_total_organization(path_str):
             return
 
         utils.get_system_status()
+
+        print("🧠 AI 모델 로딩 중...")
+        image_analyzer.load_tf_model()
+        
         print(f"\n📂 정리 대상: {path_str}")
 
         # [단계 1] 이미지 분석 (가장 먼저 실행하여 AI 분류 정밀도 확보)
@@ -37,6 +41,12 @@ def run_total_organization(path_str):
         all_files = [f for f in path.glob(pattern) if f.is_file()]
         
         for item in all_files:
+            # 이미 정리된 폴더는 다시 검사 금지
+            if any(
+                p.name.startswith(('AI_TF_분석결과', '06_영상_그룹'))
+                for p in item.parents
+            ):
+                continue
             try:
                 if utils.is_excluded(item): continue
                 

@@ -6,7 +6,7 @@ LOG_FILE_PREFIX = "error_log"
 
 # 2. 제어 변수 (사용자가 직접 변경 가능)
 RECURSIVE_SCAN = True      # 하위 폴더까지 스캔할지 여부
-UNPACK_ALL = False         # 하위 구조를 모두 해체할지 여부
+UNPACK_ALL = True         # 하위 구조를 모두 해체할지 여부
 SHOW_PROGRESS = True       # 화면(콘솔)에 파일 이동 과정을 실시간으로 출력할지 여부
 EXCLUDE_LIST = [
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
