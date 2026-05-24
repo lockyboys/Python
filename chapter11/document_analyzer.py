@@ -123,14 +123,18 @@ def analyze_document_content(file_path):
 # [개선] 분석 시작 및 완료 로그 추가
 # [개선] 분석 중인 파일명 로그 추가 (선택적)
 #  ----------------------------------------
-def run_document_organizing(target_path):
+def run_document_organizing(target_path, config.initial_folders, config.initial_files):
     target = Path(target_path)
     count = 0
     print("📄 문서 지능형 내용 분석 및 분류 중...")
     utils.log_message("📄 문서 지능형 내용 분석 및 분류 중 ...", "INFO")
     try:
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
-        doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
+        #doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
+        #all_files = utils.get_initial_files( config.initial_folders, config.initial_files )
+
+        # doc_files = [ f for f in all_files if f.suffix.lower() in config.DOCUMENT_EXTENSIONS ]
+        doc_files = [ f for f in utils.get_initial_files(config.initial_folders, config.initial_files) if f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
         for item in doc_files:
             # [핵심] 경로 기반 제외 체크 (해체 모드가 아닐 때)
             if utils.is_excluded(item): continue

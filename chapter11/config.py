@@ -35,6 +35,11 @@ DOCX_READY = False  # Word 분석 라이브러리(docx) 로드 상태
 EXCEL_READY = False # Excel 분석 라이브러리(openpyxl) 로드 상태
 PPT_READY = False   # PPT 분석 라이브러리(pptx) 로드 상태
 HWP_READY = False   # HWP 분석 라이브러리(olefile) 로드 상태
+# --------------------------------
+# 프로그램 시작 당시 상태 기억
+# --------------------------------
+initial_folders = set()
+initial_files = set()
 #--------------------------------
 # 3. 제외 리스트
 # 정리에서 제외할 폴더 및 파일 이름을 리스트로 관리합니다.

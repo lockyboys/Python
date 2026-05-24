@@ -264,3 +264,132 @@ def validate_path(path_str):
         p = Path(path_str)
         return p if p.exists() else None
     except: return None
+    """
+    프로그램 시작 시 존재하던 폴더만 기억
+    실행 중 새로 생성된 폴더는 무시하기 위한 용도
+    """
+    root = Path(root_path)
+    folder_set = set()
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        try:
+            current = current.resolve()
+            folder_set.add(current)
+            for item in current.iterdir():
+                if item.is_dir():
+                    # 제외 폴더 무시
+                    if is_excluded(item): continue
+                    stack.append(item)
+        except Exception as e: log_error(f"폴더 구조 스캔 오류 ({current}): {e}")
+    return folder_set
+
+# --------------------------------
+# 초기 폴더 기준 파일 탐색
+# --------------------------------
+def get_files_from_initial_folders(config.initial_folders):
+    files = []
+    for folder in config.initial_folders:
+        try:
+            for item in folder.iterdir():
+                if item.is_file(): files.append(item)
+        except Exception as e: log_error(f"파일 탐색 오류 ({folder}): {e}")
+    return files
+
+# --------------------------------
+# 초기 폴더/파일 구조 기억
+# Stack 기반 DFS
+# --------------------------------
+def build_initial_state(root_path):
+    """
+    프로그램 시작 시 존재하던
+    폴더 + 파일 상태 기억
+
+    새로 생성된 폴더/파일은
+    이후 탐색 대상에서 제외
+    """
+    root = Path(root_path).resolve()
+    folder_set = set()
+    file_set = set()
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        try:
+            current = current.resolve()
+            # 폴더 기억
+            folder_set.add(current)
+            for item in current.iterdir():
+                # 제외 목록
+                if is_excluded(item):
+                    continue
+                if item.is_dir():
+                    stack.append(item)
+                elif item.is_file():
+                    # 파일까지 기억
+                    file_set.add(item.resolve())
+        except Exception as e: log_error( f"초기 구조 스캔 오류 ({current}): {e}" )
+    return folder_set, file_set
+
+# --------------------------------
+# 초기 상태 기준 파일 탐색
+# --------------------------------
+def get_initial_files(config.initial_folders, config.initial_files):
+    result = []
+    for folder in config.initial_folders:
+        try:
+            # 현재 폴더가 삭제되었을 수도 있음
+            if not folder.exists(): continue
+            for item in folder.iterdir():
+                try:
+                    item = item.resolve()
+                    # 파일만
+                    if not item.is_file(): continue
+                    # 최초 상태 파일만 허용
+                    if item not in config.initial_files: continue
+                    result.append(item)
+                except Exception: continue
+        except Exception as e: log_error( f"초기 파일 탐색 오류 ({folder}): {e}" )
+    return result
+
+# --------------------------------
+# 초기 폴더/파일 상태 기억
+# Stack 기반 DFS
+# --------------------------------
+def build_initial_state(root_path):
+    root = Path(root_path).resolve()
+    config.initial_folders.clear()
+    config.initial_files.clear()
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        try:
+            current = current.resolve()
+            # 폴더 기억
+            config.initial_folders.add(current)
+            for item in current.iterdir():
+                # 제외 경로
+                if is_excluded(item): continue
+                if item.is_dir(): stack.append(item)
+                elif item.is_file():
+                    config.initial_files.add( item.resolve() )
+        except Exception as e: log_error( f"초기 상태 스캔 오류 ({current}): {e}" )
+
+# --------------------------------
+# 최초 상태 파일만 반환
+# --------------------------------
+def get_initial_files():
+    result = []
+    for folder in config.initial_folders:
+        try:
+            if not folder.exists(): continue
+            for item in folder.iterdir():
+                try:
+                    item = item.resolve()
+                    # 파일만
+                    if not item.is_file(): continue
+                    # 최초 상태 파일만
+                    if item not in config.initial_files: continue
+                    result.append(item)
+                except Exception:   continue
+        except Exception as e: log_error( f"초기 파일 탐색 오류 ({folder}): {e}" )
+    return result

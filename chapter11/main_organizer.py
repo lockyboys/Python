@@ -20,9 +20,18 @@ import utils
 def run_total_organization(path_str):
     try:
         path = utils.validate_path(path_str)
+
         if not path:
             print(f"❌ 오류: '{path_str}' 경로가 유효하지 않습니다.")
             return
+
+        # -----------------------------------------
+        # 프로그램 시작 당시 상태 기억
+        # -----------------------------------------
+        config.initial_folders, config.initial_files = ( utils.build_initial_state(path) )
+
+        # 최초 폴더 구조 기억
+        initial_folders = utils.build_initial_folder_set(path)
 
         # 1. 시스템 정밀 진단 및 로그 기록
         utils.get_system_status()
@@ -31,27 +40,30 @@ def run_total_organization(path_str):
         if config.UNPACK_ALL:
             print("⚠️ [해체 모드 활성화] 모든 하위 폴더의 파일을 루트로 모아 재분류합니다.")
 
+
+
         # 2. 영상 분석 및 그룹화
         print("\n--- [단계 1] 영상 지능형 분석 및 그룹화 ---")
         utils.log_message("단계 1: 영상 지능형 분석 및 그룹화 시작", "INFO")
-        v_count = video_analyzer.group_videos(path)
+        v_count = video_analyzer.group_videos(path, config.initial_folders, config.initial_files)
 
         # 3. 문서 분석 및 분류
         print("\n--- [단계 2] 문서 지능형 내용 분석 및 분류 ---")
         utils.log_message("단계 2: 문서 지능형 내용 분석 및 분류 시작", "INFO")
-        d_count = document_analyzer.run_document_organizing(path)
+        d_count = document_analyzer.run_document_organizing(path, config.initial_folders, config.initial_files)
 
         # 4. 이미지 AI 분석 및 분류
         print("\n--- [단계 3] AI 이미지 내용 분석 및 분류 ---")
         utils.log_message("단계 3: AI 이미지 내용 분석 및 분류 시작", "INFO")
-        i_count = image_analyzer.run_image_ai_organizing(path)
+        i_count = image_analyzer.run_image_ai_organizing(path, config.initial_folders, config.initial_files)
         
         # 5. 기타 파일 싹쓸이 정리
         print("\n--- [단계 4] 기타 파일 싹쓸이 및 정리 ---")
         utils.log_message("단계 4: 기타 파일 싹쓸이 및 정리 시작", "INFO")
         f_count = 0
-        pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
-        all_files = [f for f in path.glob(pattern) if f.is_file()]
+        #pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
+        #all_files = [f for f in path.glob(pattern) if f.is_file()]
+        all_files = utils.get_initial_files( config.initial_folders, config.initial_files )
         
         for item in all_files:
             try:
