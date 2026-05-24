@@ -136,10 +136,10 @@ def get_system_status():
         report.append(f"[TensorFlow] 버전 {tf.__version__} - \t\t\t\t✅ 로드 성공")
         gpus = tf.config.list_physical_devices('GPU')
         if gpus:
-            report.append(f"[GPU/CUDA] \t\t\t\t\t✅ NVIDIA GPU {len(gpus)}개 감지됨")
+            report.append(f"[GPU/CUDA] \t\t\t\t\t\t\t\t✅ NVIDIA GPU {len(gpus)}개 감지됨")
             for i, gpu in enumerate(gpus):
                 report.append(f"   - 장치 [{i}]: {gpu.name}")
-            report.append("[cuDNN] \t\t\t\t\t\t✅ 가속 엔진 준비 완료")
+            report.append("[cuDNN] \t\t\t\t\t\t\t\t✅ 가속 엔진 준비 완료")
         else:
             report.append("[GPU/CUDA] \t\t\t\t\tℹ️ GPU 미감지 (CPU 모드로 작동)")
     except Exception as e:

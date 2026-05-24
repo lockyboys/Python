@@ -45,7 +45,7 @@ EXCLUDE_LIST = [            # 정리에서 제외할 폴더 및 파일 이름 �
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 
     "image_analyzer.py", "document_analyzer.py", "gpu_setup_guide.md", 
-    "zlibwapi_fix_guide.md", "error_log.txt", "MS 오피스"
+    "zlibwapi_fix_guide.md", "error_log.txt", "MS 오피스", "Python"
 ]
 # --------------------------------
 # 4. 로그 파일 설정
