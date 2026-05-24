@@ -14,27 +14,37 @@ HWP_READY = False
 try:
     import fitz
     PDF_READY = True
-except Exception as e: utils.log_error(f"PDF 라이브러리(fitz) 로드 실패: {e}", False)
+except Exception as e: 
+    utils.log_error(f"PDF 라이브러리(fitz) 로드 실패: {e}", False)
+    pass
 
 try:
     from docx import Document
     DOCX_READY = True
-except Exception as e: utils.log_error(f"Word 라이브러리(docx) 로드 실패: {e}", False)
+except Exception as e: 
+    utils.log_error(f"Word 라이브러리(docx) 로드 실패: {e}", False)
+    pass
 
 try:
     import openpyxl
     EXCEL_READY = True
-except Exception as e: utils.log_error(f"Excel 라이브러리(openpyxl) 로드 실패: {e}", False)
+except Exception as e: 
+    utils.log_error(f"Excel 라이브러리(openpyxl) 로드 실패: {e}", False)
+    pass
 
 try:
     from pptx import Presentation
     PPT_READY = True
-except Exception as e: utils.log_error(f"PPT 라이브러리(pptx) 로드 실패: {e}", False)
+except Exception as e: 
+    utils.log_error(f"PPT 라이브러리(pptx) 로드 실패: {e}", False)
+    pass
 
 try:
     import olefile
     HWP_READY = True
-except Exception as e: utils.log_error(f"HWP 라이브러리(olefile) 로드 실패: {e}", False)
+except Exception as e: 
+    utils.log_error(f"HWP 라이브러리(olefile) 로드 실패: {e}", False)
+    pass
 
 def extract_text(file_path):
     ext = file_path.suffix.lower()
@@ -71,6 +81,9 @@ def extract_text(file_path):
 
 def analyze_document_content(file_path):
     try:
+        # [핵심] 경로 기반 제외 체크
+        if utils.is_excluded(file_path): return None
+
         name = file_path.name.lower()
         for folder, kws in config.KEYWORD_RULES.items():
             if any(kw.lower() in name for kw in kws): return folder
@@ -88,13 +101,15 @@ def run_document_organizing(target_path):
     target = Path(target_path)
     count = 0
     print("📄 문서 지능형 내용 분석 및 분류 중...")
+    utils.log_message("📄 문서 지능형 내용 분석 및 분류 중 ...", "INFO")
     try:
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
         doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
         for item in doc_files:
-            if item.name in config.EXCLUDE_LIST: continue
+            # [핵심] 경로 기반 제외 체크 (해체 모드가 아닐 때)
+            if utils.is_excluded(item): continue
             if not config.UNPACK_ALL:
-                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹', 'Group_')) for p in item.parents if p != target):
+                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
                     continue
             category = analyze_document_content(item)
             utils.move_file(item, target / category)

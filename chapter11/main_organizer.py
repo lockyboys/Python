@@ -24,24 +24,32 @@ def run_total_organization(path_str):
 
         # 2. 영상 분석 및 그룹화
         print("\n--- [단계 1] 영상 지능형 분석 및 그룹화 ---")
+        utils.log_message("단계 1: 영상 지능형 분석 및 그룹화 시작", "INFO")
         v_count = video_analyzer.group_videos(path)
 
         # 3. 문서 분석 및 분류
         print("\n--- [단계 2] 문서 지능형 내용 분석 및 분류 ---")
+        utils.log_message("단계 2: 문서 지능형 내용 분석 및 분류 시작", "INFO")
         d_count = document_analyzer.run_document_organizing(path)
 
         # 4. 이미지 AI 분석 및 분류
         print("\n--- [단계 3] AI 이미지 내용 분석 및 분류 ---")
+        utils.log_message("단계 3: AI 이미지 내용 분석 및 분류 시작", "INFO")
         i_count = image_analyzer.run_image_ai_organizing(path)
         
         # 5. 기타 파일 싹쓸이 정리
         print("\n--- [단계 4] 기타 파일 싹쓸이 및 정리 ---")
+        utils.log_message("단계 4: 기타 파일 싹쓸이 및 정리 시작", "INFO")
         f_count = 0
         pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
         all_files = [f for f in path.glob(pattern) if f.is_file()]
         
         for item in all_files:
             try:
+                # [개선] 경로 전체를 체크하여 제외 폴더 내 파일 보호
+                if utils.is_excluded(item):
+                    continue
+
                 # 제외 리스트 확인
                 if item.name in config.EXCLUDE_LIST or any(ex in str(item) for ex in config.EXCLUDE_LIST):
                     continue
@@ -80,12 +88,13 @@ def run_total_organization(path_str):
 
         # 6. 빈 폴더 사후 관리
         print("\n--- [단계 5] 빈 폴더 사후 관리 ---")
+        utils.log_message("단계 5: 빈 폴더 사후 관리 시작", "INFO")
         utils.mark_empty_folders(path)
 
         print(f"\n✅ 전체 정리 완료!")
         print(f"📊 통계: 영상 {v_count}개, 문서 {d_count}개, AI 이미지 {i_count}개, 기타 {f_count}개")
-        print(f"📝 상세 진단 및 오류 로그는 '{config.LOG_FILE_PATH}'를 확인하세요.")
-        
+        print(f"📝 상세 진단 및 오류 로그는 '{utils._current_log_file}'를 확인하세요.")
+        utils.log_message(f"\n✅전체 정리 완료: 영상 {v_count}개, 문서 {d_count}개, AI 이미지 {i_count}개, 기타 {f_count}개", "INFO")
     except Exception as e:
         utils.log_error(f"메인 프로세스 치명적 오류: {e}")
         print(f"❌ 치명적 오류 발생! 상세 내용은 로그를 확인하세요.")

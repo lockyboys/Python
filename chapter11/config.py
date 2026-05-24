@@ -1,13 +1,22 @@
 # [config.py] - 전체 시스템 설정 파일 (v16 - Advanced Control)
 
-# 1. 스캔 및 해체 제어 (핵심 변수)
-RECURSIVE_SCAN = True       # 하위 폴더까지 탐색할지 여부
-UNPACK_ALL = False          # True: 하위 폴더 구조를 모두 해체하여 루트로 모음 / False: 구조 유지
+# 1. 경로 및 로그 설정
+BASE_LOG_DIR = r"C:\source\Python"
+LOG_FILE_PREFIX = "error_log"
+
+# 2. 제어 변수 (사용자가 직접 변경 가능)
+#하위 폴더까지 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = True (기본값)
+# 현재 폴더만 깔끔하게 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = False
+RECURSIVE_SCAN = True      # 하위 폴더까지 스캔할지 여부 (주의: 대용량 폴더에서는 성능 저하 가능)
+UNPACK_ALL = True         # 하위 구조를 모두 해체할지 여부 (해체 시 모든 파일이 최상위 폴더로 이동, 구조 유지 시 기존 폴더 구조를 최대한 보존)
+SHOW_PROGRESS = True      # 화면(콘솔)에 파일 이동 과정을 실시간으로 출력할지 여부 (대용량 폴더에서는 출력이 많아져 성능 저하 가능)
+LoG_FILE_YN = True         # 로그 파일에 이동된 파일과 대상 폴더를 기록할지 여부 (로그 파일이 너무 커질 수 있으니 필요에 따라 조절)
+
 EXCLUDE_LIST = [            # 정리에서 제외할 폴더 및 파일 이름 리스트
     "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
     "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 
     "image_analyzer.py", "document_analyzer.py", "gpu_setup_guide.md", 
-    "zlibwapi_fix_guide.md", "error_log.txt"
+    "zlibwapi_fix_guide.md", "error_log.txt", "MS 오피스"
 ]
 
 # 2. 경로 및 로그 설정
@@ -24,6 +33,7 @@ KEYWORD_RULES = {
 
 # 4. 확장자 기반 분류 규칙
 EXTENSION_RULES = {
+    "06_영상_그룹": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"],
     "07_압축_파일": [".zip", ".rar", ".7z", ".tar", ".gz"],
     "08_일반_문서[PDF]": [".pdf"],
     "09_일반_문서[텍스트]": [".txt"],
@@ -44,7 +54,7 @@ VIDEO_EXTENSIONS = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"]
 DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".hwp", ".hwpx", ".txt"]
 
 # 6. 분석 세부 설정
-MINUTES_PER_FRAME = 10      # 영상 분석 시 프레임 추출 간격
-MAX_FRAMES_PER_VIDEO = 20   # 한 영상당 최대 추출 장수
-MAX_DOC_TEXT_LENGTH = 5000  # 문서에서 읽어들일 최대 글자 수
-FUZZY_MATCH_THRESHOLD = 80  # 키워드 유사도 매칭 임계값
+MINUTES_PER_FRAME = 10      # 영상 분석 시 프레임 추출 간격 (분 단위)
+MAX_FRAMES_PER_VIDEO = 20   # 한 영상당 최대 추출 장수 (너무 긴 영상은 분석 부담이 커서 제한)
+MAX_DOC_TEXT_LENGTH = 5000  # 문서에서 읽어들일 최대 글자 수 (너무 긴 문서는 분석 부담이 커서 제한)
+FUZZY_MATCH_THRESHOLD = 80  # 키워드 유사도 매칭 임계값 (0-100, 높을수록 엄격)
