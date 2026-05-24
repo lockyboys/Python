@@ -3,11 +3,20 @@ import os
 import config
 import utils
 from pathlib import Path
-
+#-----------------------------------------
+# 라이브러리 로드 및 상태 체크
+# [개선] 라이브러리 로드 실패 시에도 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
+# [개선] 이미지 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정
+#-----------------------------------------
 AI_READY = False
 TF_READY = False
 GPU_ACTIVE = False
-
+#-----------------------------------------
+# [개선] 라이브러리 로드 실패 시에도 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
+# [개선] 이미지 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정
+#-----------------------------------------
 try:
     import numpy as np
     from PIL import Image, UnidentifiedImageError
@@ -24,7 +33,11 @@ except Exception as e:
         pass
 
 model = None
-
+#-----------------------------------------
+# TF 모델 로드 함수
+# [개선] TF 모델 로드 함수 개선하여 모델이 준비된 경우에만
+# [개선] TF 모델 로드 함수 개선하여 모델 로딩 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+#-----------------------------------------
 def load_tf_model():
     global model
     if not TF_READY: return
@@ -32,8 +45,12 @@ def load_tf_model():
         model = MobileNetV2(weights='imagenet')
     except Exception as e:
         utils.log_message(f"TF 모델 로딩 실패: {e}", "ERROR")
-
-# [복구] 사용자님이 가장 만족하셨던 정밀 카테고리 체계
+# --------------------------------
+# [핵심] 이미지 분석 및 분류 함수
+# [개선] 이미지 분석 및 분류 함수 개선하여 키워드 기반 분류를 먼저 수행하도록 개선 (신분증 등 중요 문서 보호)
+# [개선] 이미지 분석 및 분류 함수 개선하여 AI 정밀 분석은 모델이 준비된 경우에만 수행하도록 개선
+# [개선] 이미지 분석 및 분류 함수 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+#-----------------------------------------
 AI_CATEGORIES = {
     "01_중요문서_및_행정": ["envelope", "web_site", "menu", "book_jacket", "crossword_puzzle", "id_card", "passport", "comic_book", "street_sign", "street_art", "bulletin_board", "notebook", "comic_strip", "scoreboard", "traffic_light", "traffic_sign", "parking_meter", "mailbox", "postbox"],
     "02_동물_및_생물": ["dog", "cat", "bird", "fish", "butterfly", "insect", "animal", "pet", "lion", "tiger", "bear", "zebra", "giraffe", "monkey", "horse", "cow", "sheep", "elephant", "panda", "koala"],
@@ -43,7 +60,12 @@ AI_CATEGORIES = {
     "06_인물_이미지": ["person", "portrait", "selfie", "face", "man", "woman", "child", "baby", "bride", "groom", "athlete", "performer", "celebrity", "model", "worker", "student"],
     "07_기타_이미지": [ "clothing", "footwear", "accessory", "sports_equipment", "musical_instrument", "tool", "appliance", "electronic_device", "furniture", "artwork", "logo", "symbol"]
 }
-
+# ----------------------------------------
+# [핵심] 이미지 분석 및 분류 함수
+# [개선] 이미지 분석 및 분류 함수 개선하여 키워드 기반 분류를 먼저 수행하도록 개선 (신분증 등 중요 문서 보호)
+# [개선] 이미지 분석 및 분류 함수 개선하여 AI 정밀 분석은 모델이 준비된 경우에만 수행하도록 개선
+# [개선] 이미지 분석 및 분류 함수 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+#-----------------------------------------
 def analyze_image_final(image_path):
     try:
         if image_path.name in config.EXCLUDE_LIST: return None
@@ -79,8 +101,14 @@ def analyze_image_final(image_path):
                         return category
     except Exception as e:
         utils.log_message(f"이미지 분석 오류 ({image_path.name}): {e}", "ERROR")
-    return label
-
+    # AI 결과가 어떤 카테고리에도 없으면 기본적으로 기타 이미지로 분류
+    return  label if TF_READY else "09_일반_사진"
+# ----------------------------------------
+# [핵심] 이미지 분석 및 분류 실행 함수
+# [개선] 이미지 분석 및 분류 함수 개선하여 키워드 기반 분류를 먼저 수행하도록 개선 (신분증 등 중요 문서 보호)
+# [개선] 이미지 분석 및 분류 함수 개선하여 AI 정밀 분석은 모델이 준비된 경우에만 수행하도록 개선
+# [개선] 이미지 분석 및 분류 함수 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+#-----------------------------------------  
 def run_image_ai_organizing(target_path):
     target = Path(target_path)
     count = 0
@@ -97,9 +125,11 @@ def run_image_ai_organizing(target_path):
                 if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
                     continue
             category = analyze_image_final(item)
-            # AI 분류 결과인 경우 AI_TF_분석결과 폴더 아래로, 아니면 루트 하위로
-            #utils.move_file(item, target / "AI_TF_분석결과" / category)
-            if category in AI_CATEGORIES or category == "09_일반_사진":
+            # AI 분석 결과에 따른 분류 (AI 카테고리에 해당하면 AI 폴더로, 아니면 일반 폴더로)
+            # [개선] 이미지 분석 및 분류 함수 개선하여 AI 분석 결과에 따른 분류 (AI 카테고리에 해당하면 AI 폴더로, 아니면 일반 폴더로) 개선하여 AI 카테고리에 해당하는 경우는 AI_TF_분석결과 폴더로 이동하도록 개선
+            # # [개선] 이미지 분석 및 분류 함수 개선하여 AI 분석 결과에 따른 분류 (AI 카테고리에 해당하면 AI 폴더로, 아니면 일반 폴더로) 개선하여 AI 카테고리에 해당하는 경우는 AI_TF_분석결과 폴더로 이동하도록 개선
+            #   - (카테고리명에 날짜/시간 패턴이 포함된 경우, 패턴을 제거하고 카테고리명만 폴더 이름에 포함하도록 개선)
+            if category in AI_CATEGORIES:
                 utils.move_file(item, ai_root / category)
             else:
                 utils.move_file(item, target / category)

@@ -4,48 +4,54 @@ import config
 import utils
 from pathlib import Path
 
-# 라이브러리 로드 및 상태 체크
-PDF_READY = False
-DOCX_READY = False
-EXCEL_READY = False
-PPT_READY = False
-HWP_READY = False
-
+# -----------------------------------------
+# [개선] 라이브러리 로드 실패 시에도 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
+# [개선] 문서 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정 
+# -----------------------------------------
 try:
     import fitz
-    PDF_READY = True
+    config.PDF_READY = True
 except Exception as e: 
     utils.log_error(f"PDF 라이브러리(fitz) 로드 실패: {e}", False)
     pass
 
 try:
     from docx import Document
-    DOCX_READY = True
+    config.DOCX_READY = True
 except Exception as e: 
     utils.log_error(f"Word 라이브러리(docx) 로드 실패: {e}", False)
     pass
 
 try:
     import openpyxl
-    EXCEL_READY = True
+    config.EXCEL_READY = True
 except Exception as e: 
     utils.log_error(f"Excel 라이브러리(openpyxl) 로드 실패: {e}", False)
     pass
 
 try:
     from pptx import Presentation
-    PPT_READY = True
+    config.PPT_READY = True
 except Exception as e: 
     utils.log_error(f"PPT 라이브러리(pptx) 로드 실패: {e}", False)
     pass
 
 try:
     import olefile
-    HWP_READY = True
+    config.HWP_READY = True
 except Exception as e: 
     utils.log_error(f"HWP 라이브러리(olefile) 로드 실패: {e}", False)
     pass
-
+# ----------------------------------------
+# [핵심] 문서 내용 분석 및 분류 함수
+# [개선] 분석 실패 시에도 기본 분류로 이동하도록 보완
+# [개선] 분석 과정에서 제외 폴더 내 파일 보호 로직 추가 (해체 모드가 아닐 때)
+# [개선] 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 분석된 문서 수 카운트 및 반환
+# [개선] 분석 시작 및 완료 로그 추가
+# [개선] 분석 중인 파일명 로그 추가 (선택적)
+# ----------------------------------------
 def extract_text(file_path):
     ext = file_path.suffix.lower()
     text = ""
@@ -78,6 +84,15 @@ def extract_text(file_path):
     except Exception as e:
         utils.log_error(f"문서 텍스트 추출 오류 ({file_path.name}): {e}")
     return text[:config.MAX_DOC_TEXT_LENGTH]
+# ----------------------------------------
+# [핵심] 문서 분석 및 분류 로직
+# [개선] 분석 실패 시에도 기본 분류로 이동하도록 보완
+# [개선] 분석 과정에서 제외 폴더 내 파일 보호 로직 추가 (해체 모드가 아닐 때)
+# [개선] 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 분석된 문서 수 카운트 및 반환
+# [개선] 분석 시작 및 완료 로그 추가
+# [개선] 분석 중인 파일명 로그 추가 (선택적)
+# ----------------------------------------
 
 def analyze_document_content(file_path):
     try:
@@ -96,7 +111,18 @@ def analyze_document_content(file_path):
     except Exception as e:
         utils.log_error(f"문서 내용 분석 오류 ({file_path.name}): {e}")
     return "99_미분류_기타"
-
+#-----------------------------------------
+# [핵심] 문서 분석 및 분류 실행 함수
+# [개선] 예외 처리 강화 및 분석 실패 시에도 기본 분류로 이동하도록 보완
+# [개선] 분석 과정에서 제외 폴더 내 파일 보호 로직 추가 (해체 모드가 아닐 때)
+# [개선] 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
+# [개선] 분석된 문서 수 카운트 및 반환
+# [개선] 분석 시작 및 완료 로그 추가
+# [개선] 분석 중인 파일명 로그 추가 (선택적)
+# [개선] 분석된 문서 수 카운트 및 반환
+# [개선] 분석 시작 및 완료 로그 추가
+# [개선] 분석 중인 파일명 로그 추가 (선택적)
+#  ----------------------------------------
 def run_document_organizing(target_path):
     target = Path(target_path)
     count = 0

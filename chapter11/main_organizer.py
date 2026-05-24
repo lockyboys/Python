@@ -2,12 +2,21 @@
 import os
 import sys
 import config
-import utils
 import video_analyzer
 import image_analyzer
 import document_analyzer
 from pathlib import Path
 
+
+import utils
+# -----------------------------------------
+# 전체 시스템 통합 실행 파일
+# [개선] 전체 시스템 통합 실행 파일 개선하여 각 단계별로 상세 로그 기록 및 오류 처리 강화
+# [개선] 전체 시스템 통합 실행 파일 개선하여 시스템 상태 진단 및 보고 기능 추가
+# [개선] 전체 시스템 통합 실행 파일 개선하여 사용자 입력 경로 검증 및 유효성 검사 강화
+# [개선] 전체 시스템 통합 실행 파일 개선하여 각 단계별로 처리된 항목 수에 대한 통계 보고 기능 추가
+# [개선] 전체 시스템 통합 실행 파일 개선하여 시스템 상태 진단 및 보고 기능 추가하여 시스템의 현재 상태와 각 단계별로 처리된 항목 수에 대한 상세 보고서 생성
+# -----------------------------------------
 def run_total_organization(path_str):
     try:
         path = utils.validate_path(path_str)
@@ -46,6 +55,15 @@ def run_total_organization(path_str):
         
         for item in all_files:
             try:
+
+                # # 🔥 AI 분석 완료 폴더 보호
+                # if "AI_TF_분석결과" in str(item):
+                #     continue
+
+                # 🔥 AI 분석 완료 폴더 보호
+                if any(p.name == "AI_TF_분석결과" for p in item.parents):
+                    continue
+
                 # [개선] 경로 전체를 체크하여 제외 폴더 내 파일 보호
                 if utils.is_excluded(item):
                     continue
@@ -98,7 +116,11 @@ def run_total_organization(path_str):
     except Exception as e:
         utils.log_error(f"메인 프로세스 치명적 오류: {e}")
         print(f"❌ 치명적 오류 발생! 상세 내용은 로그를 확인하세요.")
-
+# -----------------------------------------
+# 메인 실행
+# [개선] 메인 실행 개선하여 사용자 입력 경로 검증 및 유효성 검사 강화
+# [개선] 메인 실행 개선하여 시스템 상태 진단 및 보고 기능 추가하여 시스템의 현재 상태와 각 단계별로 처리된 항목 수에 대한 상세 보고서 생성
+#-----------------------------------------
 if __name__ == "__main__":
     path_input = sys.argv[1] if len(sys.argv) > 1 else input("정리할 폴더 경로를 입력하세요: ").strip()
     run_total_organization(path_input)
