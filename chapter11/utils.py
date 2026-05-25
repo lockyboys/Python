@@ -21,24 +21,58 @@ _current_log_file = None    # 현재 실행 세션의 로그 파일 경로 (초�
 # [개선] 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거하는 함수 추가
 # [개선] 정규표현식을 사용하여 다양한 날짜/시간 패턴을 제거하도록 개선
 # --------------------------------  
-def cleaning_filename(filename):
-    """ 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거합니다.
-        photo.jpg.jpg.jpg -> photo.jpg
-        document.pdf.pdf -> document.pdf
-    """
-    # 파일명과 확장자 분리
+# def cleaning_filename(filename):
+#     """ 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거합니다.
+#         photo.jpg.jpg.jpg -> photo.jpg
+#         document.pdf.pdf -> document.pdf
+#     """
+#     # 파일명과 확장자 분리
     
 
-    # 8자리 날짜와 6자리 시간 패턴 (_20240101_123456 또는 _123456 등)을 매칭
-    # 정규표현식: _20\d{6} (날짜) 또는 _\d{6} (시간)이 반복되는 것을 찾음
-    pattern = r'(_20\d{6}|_\d{6})'
-    cleaned = re.sub(pattern, '', filename)
+#     # 8자리 날짜와 6자리 시간 패턴 (_20240101_123456 또는 _123456 등)을 매칭
+#     # 정규표현식: _20\d{6} (날짜) 또는 _\d{6} (시간)이 반복되는 것을 찾음
+#     pattern = r'(_20\d{6}|_\d{6})'
+#     cleaned = re.sub(pattern, '', filename)
 
+#     # 반복 확장자 제거
+#     pattern = r'(\.[a-zA-Z0-9]+)(\1)+$'
+#     cleaned = re.sub(pattern, '', filename)
+
+#     return cleaned
+# --------------------------------
+# 파일명 정리
+# --------------------------------
+def cleaning_filename(filename):
+    name = str(filename)
+    # --------------------------------
     # 반복 확장자 제거
-    pattern = r'(\.[a-zA-Z0-9]+)(\1)+$'
-    cleaned = re.sub(pattern, '', filename)
-
-    return cleaned
+    # photo.jpg.jpg.jpg
+    # --------------------------------
+    while True:
+        new_name = re.sub( r'(\.[a-zA-Z0-9]+)(\1)+$', r'\1', name, flags=re.IGNORECASE )
+        if new_name == name:
+            break
+        name = new_name
+    # --------------------------------
+    # .png_123456.png 제거
+    # .jpg_123456.jpg 제거
+    # --------------------------------
+    name = re.sub( r'(\.[a-zA-Z0-9]+)_\d{6,8}(\.[a-zA-Z0-9]+)$', r'\1', name, flags=re.IGNORECASE )
+    # --------------------------------
+    # _20260303 제거
+    # _2026-03-03 제거
+    # --------------------------------
+    name = re.sub( r'[_\- ]20\d{2}[_\-]?\d{2}[_\-]?\d{2}', '', name )
+    # --------------------------------
+    # _123456 제거
+    # _123456_222222 제거
+    # --------------------------------
+    name = re.sub( r'(_\d{6,8})+', '', name )
+    # --------------------------------
+    # 남은 특수문자 정리
+    # --------------------------------
+    name = re.sub(r'[_\- ]+$', '', name)
+    return name.strip()
 # --------------------------------
 # [복구] log_error 함수 개선 (v17 - Expert Fix)
 # [개선] log_error 함수 개선하여 상세 오류 기록 및 예외 처리 강화
@@ -47,7 +81,7 @@ def cleaning_filename(filename):
 def log_error(message, include_traceback=True):
     """오류 내용을 로그 파일에 상세히 기록합니다. (이전 버전 호환성 유지)"""
     try:
-        if not config.LoG_FILE_YN: return
+        if not config.LOG_FILE_YN: return
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(get_log_path(), "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] [ERROR] {message}\n")
@@ -66,7 +100,7 @@ def log_error(message, include_traceback=True):
 def log_message(message, level="INFO"):
     """일반 메시지를 로그 파일에 기록합니다."""
     try:
-        if not config.LoG_FILE_YN: return 
+        if not config.LOG_FILE_YN: return 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(get_log_path(), "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] [{level}] {message}\n")
@@ -95,21 +129,38 @@ def get_log_path():
 # [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
 # [개선] 문서 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정 
 # --------------------------------
+# def is_excluded(item_path):
+#     """파일 이름 및 상위 모든 경로에 대해 제외 목록 포함 여부를 완벽하게 검사합니다."""
+#     path_obj = Path(item_path).absolute()
+#     # 1. 제외 목록 정규화 (대소문자 무시, 공백 제거)
+#     clean_exclude = [str(ex).strip().lower() for ex in config.EXCLUDE_LIST]
+#     # 2. 파일 이름 체크
+#     if path_obj.name.lower() in clean_exclude: return True
+#     # 3. 경로의 모든 구성 요소 체크 (상위 폴더들)
+#     for part in path_obj.parts:
+#         if part.lower() in clean_exclude: return True
+#     # 4. 전체 경로 문자열 내 포함 여부 체크 (부분 일치)
+#     full_path_str = str(path_obj).lower()
+#     for ex in clean_exclude:
+#         if ex and ex in full_path_str: return True
+#     return False
+# --------------------------------
+# 제외 여부 검사
+# --------------------------------
 def is_excluded(item_path):
-    """파일 이름 및 상위 모든 경로에 대해 제외 목록 포함 여부를 완벽하게 검사합니다."""
-    path_obj = Path(item_path).absolute()
-    # 1. 제외 목록 정규화 (대소문자 무시, 공백 제거)
-    clean_exclude = [str(ex).strip().lower() for ex in config.EXCLUDE_LIST]
-    # 2. 파일 이름 체크
-    if path_obj.name.lower() in clean_exclude: return True
-    # 3. 경로의 모든 구성 요소 체크 (상위 폴더들)
-    for part in path_obj.parts:
-        if part.lower() in clean_exclude: return True
-    # 4. 전체 경로 문자열 내 포함 여부 체크 (부분 일치)
-    full_path_str = str(path_obj).lower()
-    for ex in clean_exclude:
-        if ex and ex in full_path_str: return True
-    return False
+    try:
+        p = Path(item_path).resolve()
+        exclude = { str(x).lower().strip() for x in config.EXCLUDE_LIST }
+        # 자기 자신
+        if p.name.lower() in exclude:
+            return True
+        # 상위 폴더
+        for parent in p.parents:
+            if parent.name.lower() in exclude:
+                return True
+        return False
+    except:
+        return False
 # --------------------------------
 # 시스템 상태 정밀 진단 함수 (v17 - Expert Fix)
 # [개선] 시스템 상태 정밀 진단 함수 추가하여 라이브러리 및 하드웨어 상태를 상세히 보고하도록 개선
@@ -156,7 +207,7 @@ def get_system_status():
     try:
         import pytesseract
         ver = pytesseract.get_tesseract_version()
-        report.append(f"[Tesseract OCR] 버전 {ver} - \t✅ 정상")
+        report.append(f"[Tesseract OCR] 버전 {ver} - \t\t\t\t✅ 정상")
     except Exception as e:
         report.append(f"[Tesseract OCR] \t\t\t\t\t\t❌ 엔진 미설치 또는 로드 실패: {e}")
 
@@ -188,45 +239,111 @@ def get_system_status():
 # [개선] 이동 성공 시 화면 출력 여부 결정 및 로그 파일에 이동 기록 저장
 # [개선] 이동 실패 시 상세 오류 메시지 출력 및 로그 기록 강화
 # --------------------------------
-def move_file(source, dest_dir):
-    """파일 이동 (중복 시 기존 시간 제거 후 최신 시간 1개만 유지)"""
-    try:
-        # [핵심] 이동 전 최종적으로 한 번 더 체크
-        if is_excluded(source): return
+# def move_file(source, dest_dir):
+#     """파일 이동 (중복 시 기존 시간 제거 후 최신 시간 1개만 유지)"""
+#     try:
+#         # [핵심] 이동 전 최종적으로 한 번 더 체크
+#         if is_excluded(source): return
         
-        if source.name in config.EXCLUDE_LIST: return # 파일명 자체가 제외 리스트에 있는 경우 (안전망)
+#         if source.name in config.EXCLUDE_LIST: return # 파일명 자체가 제외 리스트에 있는 경우 (안전망)
 
-        if dest_dir.name in config.EXCLUDE_LIST: return # 대상 폴더명이 제외 리스트에 있는 경우 (안전망)
-        # 1. 원본 파일명에서 지저분한 이전 시간 패턴 제거
-        dest_dir.mkdir(parents=True, exist_ok=True) # 대상 폴더가 없으면 생성 (중간 폴더도 함께)
-        clean_filename = cleaning_filename(source.stem) # 파일명에서 날짜/시간 패턴 제거
-        dest = dest_dir / f"{clean_filename}{source.suffix}" # 최종 대상 경로 (날짜/시간 패턴 제거된 이름)
+#         if dest_dir.name in config.EXCLUDE_LIST: return # 대상 폴더명이 제외 리스트에 있는 경우 (안전망)
+#         # 1. 원본 파일명에서 지저분한 이전 시간 패턴 제거
+#         dest_dir.mkdir(parents=True, exist_ok=True) # 대상 폴더가 없으면 생성 (중간 폴더도 함께)
+#         clean_filename = cleaning_filename(source.stem) # 파일명에서 날짜/시간 패턴 제거
+#         dest = dest_dir / f"{clean_filename}{source.suffix}" # 최종 대상 경로 (날짜/시간 패턴 제거된 이름)
 
-        # 2. 목적지에 이미 파일이 있다면 최신 시간 하나만 붙임
-        if dest.exists():
-            now = datetime.now().strftime("%H%M%S")
-            dest = dest_dir / f"{clean_filename}_{now}{source.suffix}"        
+#         # 2. 목적지에 이미 파일이 있다면 최신 시간 하나만 붙임
+#         if dest.exists():
+#             now = datetime.now().strftime("%H%M%S")
+#             dest = dest_dir / f"{clean_filename}_{now}{source.suffix}"        
         
-        # 3. 파일 이동 (재시도 로직 포함)
-        max_retries = 3
-        for i in range(max_retries):
-            try:
-                shutil.move(str(source), str(dest))
-                # - 1. 화면(콘솔) 출력 여부 결정
-                status_msg = f"✅ {source.name} -> {dest_dir.name}/{dest.name} "
-                if config.SHOW_PROGRESS:
-                    print(status_msg)
+#         # 3. 파일 이동 (재시도 로직 포함)
+#         max_retries = 3
+#         for i in range(max_retries):
+#             try:
+#                 shutil.move(str(source), str(dest))
+#                 # - 1. 화면(콘솔) 출력 여부 결정
+#                 status_msg = f"✅ {source.name} -> {dest_dir.name}/{dest.name} "
+#                 if config.SHOW_PROGRESS:
+#                     print(status_msg)
                 
-                # - 2. 로그 파일에 이동 기록 저장 (항상 기록)
-                log_message(f"MOVE_SUCCESS: {source.absolute()} -> {dest.absolute()}")
+#                 # - 2. 로그 파일에 이동 기록 저장 (항상 기록)
+#                 log_message(f"MOVE_SUCCESS: {source.absolute()} -> {dest.absolute()}")
+#                 return
+#             except PermissionError:
+#                 if i < max_retries - 1: time.sleep(1)
+#                 else: raise
+#     except Exception as e:
+#         msg = f"이동 오류 ({source.name}): {str(e)}"
+#         print(f"❌ {msg}")
+#         log_error(msg)
+# --------------------------------
+# 파일 이동
+# --------------------------------
+def move_file(source, dest_dir):
+    try:
+        source = Path(source)
+        # --------------------------------
+        # 이미 이동되어 원본이 없으면 종료
+        # --------------------------------
+        if not source.exists():
+            return
+        # --------------------------------
+        # 제외 경로
+        # --------------------------------
+        if is_excluded(source):
+            return
+        # --------------------------------
+        # 대상 폴더 생성
+        # --------------------------------
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        # --------------------------------
+        # 전체 파일명 정리
+        # --------------------------------
+        cleaned_full = cleaning_filename(source.name)
+        cleaned_path = Path(cleaned_full)
+        clean_name = cleaned_path.stem
+        ext = cleaned_path.suffix.lower()
+        if not ext:
+            ext = source.suffix.lower()
+        # --------------------------------
+        # 최종 대상
+        # --------------------------------
+        dest = dest_dir / f"{clean_name}{ext}"
+        # --------------------------------
+        # 같은 경로면 종료
+        # --------------------------------
+        try:
+            if source.resolve() == dest.resolve():
                 return
-            except PermissionError:
-                if i < max_retries - 1: time.sleep(1)
-                else: raise
+        except Exception as e:
+            log_error( f"같은 경로면 종료에서 오류 ({source}): {e}" )
+            pass
+        # --------------------------------
+        # 중복 처리
+        # --------------------------------
+        if dest.exists():
+            index = 1
+            while True:
+                candidate = ( dest_dir / f"{clean_name}_{index}{ext}" )
+                if not candidate.exists():
+                    dest = candidate
+                    break
+                index += 1
+        # --------------------------------
+        # 이동
+        # --------------------------------
+        shutil.move(str(source), str(dest))
+        # --------------------------------
+        # 이동 성공 로그
+        # --------------------------------
+        status = f"✅ {source.name} -> {dest}"
+        if config.SHOW_PROGRESS:
+            print(status)
+        log_message(status)
     except Exception as e:
-        msg = f"이동 오류 ({source.name}): {str(e)}"
-        print(f"❌ {msg}")
-        log_error(msg)
+        log_error( f"이동 오류 ({source}): {e}" )
 # --------------------------------
 # 빈 폴더 마킹 함수 개선 (v17 - Expert Fix)
 # [개선] mark_empty_folders 함수 개선하여 빈 폴더를 찾아 '_빈폴더' 마킹 추가
@@ -236,22 +353,80 @@ def move_file(source, dest_dir):
 # [개선] 빈 폴더 마킹 시 이름이 숫자로 시작하고 '_'를 포함하는 경우는 원래 분류된 폴더로 간주하여 마킹에서 제외하도록 개선
 # [개선] 빈 폴더 마킹 중 오류 발생 시 상세 오류 메시지 출력 및 로그 기록 강화
 # --------------------------------
+# def mark_empty_folders(target_path):
+#     """빈 폴더를 찾아 '_빈폴더' 마킹 추가"""
+#     try:
+#         for root, dirs, files in os.walk(target_path, topdown=False):
+#             for d in dirs:
+#                 dir_path = Path(root) / d
+#                 if is_excluded(dir_path): continue
+#                 if not d.endswith("_빈폴더") and not any(dir_path.iterdir()):
+#                     if d[:2].isdigit() and "_" in d: continue
+#                     new_name = dir_path.parent / f"{d}_빈폴더"
+#                     try:
+#                         dir_path.rename(new_name)
+#                         print(f"📁 빈 폴더 마킹: {d} -> {new_name.name}")
+#                     except: pass
+#     except Exception as e:
+#         log_error(f"빈 폴더 마킹 중 오류: {e}")
+## --------------------------------
+# 빈 폴더 마킹
+# --------------------------------
 def mark_empty_folders(target_path):
-    """빈 폴더를 찾아 '_빈폴더' 마킹 추가"""
     try:
-        for root, dirs, files in os.walk(target_path, topdown=False):
+        protected = (
+            "01_",
+            "02_",
+            "03_",
+            "04_",
+            "05_",
+            "06_",
+            "07_",
+            "08_",
+            "09_",
+            "10_",
+            "11_",
+            "12_",
+            "13_",
+            "14_",
+            "15_",
+            "16_",
+            "17_",
+            "18_",
+            "99_",
+            "AI_TF_",
+        )
+        for root, dirs, files in os.walk(
+            target_path,
+            topdown=False
+        ):
             for d in dirs:
                 dir_path = Path(root) / d
-                if is_excluded(dir_path): continue
-                if not d.endswith("_빈폴더") and not any(dir_path.iterdir()):
-                    if d[:2].isdigit() and "_" in d: continue
-                    new_name = dir_path.parent / f"{d}_빈폴더"
-                    try:
-                        dir_path.rename(new_name)
-                        print(f"📁 빈 폴더 마킹: {d} -> {new_name.name}")
-                    except: pass
+                if is_excluded(dir_path):
+                    continue
+                # --------------------------------
+                # 기본 폴더 보호
+                # --------------------------------
+                if d.startswith(protected):
+                    continue
+                # --------------------------------
+                # 이미 빈폴더 표시
+                # --------------------------------
+                if d.endswith("_빈폴더"):
+                    continue
+                # --------------------------------
+                # 실제 비었는지
+                # --------------------------------
+                if any(dir_path.iterdir()):
+                    continue
+                try:
+                    new_path = ( dir_path.parent / f"{d}_빈폴더" )
+                    dir_path.rename(new_path)
+                    print( f"📁 빈 폴더: {new_path.name}" )
+                except Exception as e:
+                    log_error( f"빈 폴더 이름 변경 실패: {e}" )
     except Exception as e:
-        log_error(f"빈 폴더 마킹 중 오류: {e}")
+        log_error( f"빈 폴더 마킹 오류: {e}" )
 # --------------------------------
 # 경로 유효성 검사 함수 추가 (v17 - Expert Fix)
 # [개선] validate_path 함수 추가하여 입력된 경로의 유효성을 검사하도록 개선
@@ -264,6 +439,11 @@ def validate_path(path_str):
         p = Path(path_str)
         return p if p.exists() else None
     except: return None
+
+# --------------------------------
+# 초기 폴더 구조 기억 (스택 기반 DFS)
+# --------------------------------
+def build_initial_folder_set(root_path):
     """
     프로그램 시작 시 존재하던 폴더만 기억
     실행 중 새로 생성된 폴더는 무시하기 위한 용도
@@ -287,7 +467,7 @@ def validate_path(path_str):
 # --------------------------------
 # 초기 폴더 기준 파일 탐색
 # --------------------------------
-def get_files_from_initial_folders(config.initial_folders):
+def get_files_from_initial_folders():
     files = []
     for folder in config.initial_folders:
         try:
@@ -300,96 +480,128 @@ def get_files_from_initial_folders(config.initial_folders):
 # 초기 폴더/파일 구조 기억
 # Stack 기반 DFS
 # --------------------------------
-def build_initial_state(root_path):
-    """
-    프로그램 시작 시 존재하던
-    폴더 + 파일 상태 기억
+# def build_initial_state(root_path):
+#     """
+#     프로그램 시작 시 존재하던
+#     폴더 + 파일 상태 기억
 
-    새로 생성된 폴더/파일은
-    이후 탐색 대상에서 제외
-    """
-    root = Path(root_path).resolve()
-    folder_set = set()
-    file_set = set()
-    stack = [root]
+#     새로 생성된 폴더/파일은
+#     이후 탐색 대상에서 제외
+#     """
+#     root = Path(root_path).resolve()
+#     folder_set = set()
+#     file_set = set()
+#     stack = [root]
+#     while stack:
+#         current = stack.pop()
+#         try:
+#             current = current.resolve()
+#             # 폴더 기억
+#             folder_set.add(current)
+#             for item in current.iterdir():
+#                 # 제외 목록
+#                 if is_excluded(item):
+#                     continue
+#                 if item.is_dir():
+#                     stack.append(item)
+#                 elif item.is_file():
+#                     # 파일까지 기억
+#                     file_set.add(item.resolve())
+#         except Exception as e: log_error( f"초기 구조 스캔 오류 ({current}): {e}" )
+#     return folder_set, file_set
+# --------------------------------
+# 초기 상태 기억
+# --------------------------------
+def build_initial_state(root_path):
+    config.TARGET_ROOT = Path(root_path).resolve()
+    config.initial_folders = set()
+    config.initial_files = []
+    stack = [config.TARGET_ROOT]
     while stack:
         current = stack.pop()
         try:
-            current = current.resolve()
-            # 폴더 기억
-            folder_set.add(current)
             for item in current.iterdir():
-                # 제외 목록
+                # --------------------------------
+                # 제외 경로
+                # --------------------------------
                 if is_excluded(item):
                     continue
+                # --------------------------------
+                # AI 결과 폴더 강제 제외
+                # --------------------------------
+                if item.name == config.AI_RESULT_DIR:
+                    continue
+                # --------------------------------
+                # 폴더
+                # --------------------------------
                 if item.is_dir():
-                    stack.append(item)
+                    config.initial_folders.add( item.resolve() )
+                    if config.RECURSIVE_SCAN:
+                        stack.append(item)
+                # --------------------------------
+                # 파일
+                # --------------------------------
                 elif item.is_file():
-                    # 파일까지 기억
-                    file_set.add(item.resolve())
-        except Exception as e: log_error( f"초기 구조 스캔 오류 ({current}): {e}" )
-    return folder_set, file_set
-
+                    config.initial_files.append( item.resolve() )
+        except Exception as e:
+            log_error( f"초기 상태 기억 실패 ({current}): {e}" )
 # --------------------------------
 # 초기 상태 기준 파일 탐색
 # --------------------------------
-def get_initial_files(config.initial_folders, config.initial_files):
-    result = []
-    for folder in config.initial_folders:
-        try:
-            # 현재 폴더가 삭제되었을 수도 있음
-            if not folder.exists(): continue
-            for item in folder.iterdir():
-                try:
-                    item = item.resolve()
-                    # 파일만
-                    if not item.is_file(): continue
-                    # 최초 상태 파일만 허용
-                    if item not in config.initial_files: continue
-                    result.append(item)
-                except Exception: continue
-        except Exception as e: log_error( f"초기 파일 탐색 오류 ({folder}): {e}" )
-    return result
-
+# def get_initial_files():
+#     result = []
+#     for folder in config.initial_folders:
+#         try:
+#             if not folder.exists(): continue        # 현재 폴더가 삭제되었을 수도 있음
+#             for item in folder.iterdir():
+#                 try:
+#                     item = item.resolve()
+#                     if not item.is_file(): continue # 파일만
+#                     if item not in config.initial_files: continue   # 최초 상태 파일만 허용
+#                     result.append(item)
+#                 except Exception: continue
+#         except Exception as e: log_error( f"초기 파일 탐색 오류 ({folder}): {e}" )
+#     return result
 # --------------------------------
-# 초기 폴더/파일 상태 기억
-# Stack 기반 DFS
-# --------------------------------
-def build_initial_state(root_path):
-    root = Path(root_path).resolve()
-    config.initial_folders.clear()
-    config.initial_files.clear()
-    stack = [root]
-    while stack:
-        current = stack.pop()
-        try:
-            current = current.resolve()
-            # 폴더 기억
-            config.initial_folders.add(current)
-            for item in current.iterdir():
-                # 제외 경로
-                if is_excluded(item): continue
-                if item.is_dir(): stack.append(item)
-                elif item.is_file():
-                    config.initial_files.add( item.resolve() )
-        except Exception as e: log_error( f"초기 상태 스캔 오류 ({current}): {e}" )
-
-# --------------------------------
-# 최초 상태 파일만 반환
+# 최초 상태 기준 파일 반환
 # --------------------------------
 def get_initial_files():
     result = []
-    for folder in config.initial_folders:
+    for f in config.initial_files:
         try:
-            if not folder.exists(): continue
-            for item in folder.iterdir():
-                try:
-                    item = item.resolve()
-                    # 파일만
-                    if not item.is_file(): continue
-                    # 최초 상태 파일만
-                    if item not in config.initial_files: continue
-                    result.append(item)
-                except Exception:   continue
-        except Exception as e: log_error( f"초기 파일 탐색 오류 ({folder}): {e}" )
+            f = Path(f)
+            # --------------------------------
+            # 이미 이동된 파일 제거
+            # --------------------------------
+            if not f.exists():
+                continue
+            # --------------------------------
+            # AI 결과 폴더 제외
+            # --------------------------------
+            if config.AI_RESULT_DIR in str(f):
+                continue
+            # --------------------------------
+            # 제외 경로
+            # --------------------------------
+            if is_excluded(f):
+                continue
+            # --------------------------------
+            # 루트만
+            # --------------------------------
+            if not config.UNPACK_ALL:
+                if ( f.parent.resolve() != config.TARGET_ROOT.resolve() ):
+                    continue
+            result.append(f)
+        except Exception as e:
+            log_error( f"초기 파일 반환 오류 ({f}): {e}" )
     return result
+
+# --------------------------------
+# AI 결과 루트 반환
+# --------------------------------
+def get_ai_result_root(base_path):
+
+    result_root = ( Path(base_path) / config.AI_RESULT_DIR )
+
+    result_root.mkdir( parents=True, exist_ok=True )
+    return result_root
