@@ -9,4 +9,4 @@ def delete_a(name):
     conn.close()
 
 if __name__ == '__main__': 
-    delete_a('이영희')
+    delete_a('김철수')
