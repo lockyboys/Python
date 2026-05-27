@@ -185,7 +185,9 @@ def run_total_organization(path_str):
                 # --------------------------------
                 # 이미 정리된 폴더 제외
                 # --------------------------------
-                if any( p.name.startswith( config.SKIP_FOLDERS ) for p in item.parents ):
+                # if any( p.name.startswith( config.SKIP_FOLDERS ) for p in item.parents ):
+                #     continue
+                if utils.is_already_organized(item, path):
                     continue
                 moved = False
                 # --------------------------------

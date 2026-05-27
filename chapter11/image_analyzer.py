@@ -45,21 +45,6 @@ def load_tf_model():
         model = MobileNetV2(weights='imagenet')
     except Exception as e:
         utils.log_message(f"TF 모델 로딩 실패: {e}", "ERROR")
-# --------------------------------
-# [핵심] 이미지 분석 및 분류 함수
-# [개선] 이미지 분석 및 분류 함수 개선하여 키워드 기반 분류를 먼저 수행하도록 개선 (신분증 등 중요 문서 보호)
-# [개선] 이미지 분석 및 분류 함수 개선하여 AI 정밀 분석은 모델이 준비된 경우에만 수행하도록 개선
-# [개선] 이미지 분석 및 분류 함수 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
-#-----------------------------------------
-AI_CATEGORIES = {
-    "01_중요문서_및_행정": ["envelope", "web_site", "menu", "book_jacket", "crossword_puzzle", "id_card", "passport", "comic_book", "street_sign", "street_art", "bulletin_board", "notebook", "comic_strip", "scoreboard", "traffic_light", "traffic_sign", "parking_meter", "mailbox", "postbox"],
-    "02_동물_및_생물": ["dog", "cat", "bird", "fish", "butterfly", "insect", "animal", "pet", "lion", "tiger", "bear", "zebra", "giraffe", "monkey", "horse", "cow", "sheep", "elephant", "panda", "koala"],
-    "03_풍경_및_자연": ["valley", "mountain", "alp", "volcano", "promontory", "lakeside", "seashore", "ocean", "tree", "forest", "sky", "cloud"],
-    "04_음식_및_요리": ["food", "plate", "dish", "burrito", "pizza", "guacamole", "ice_cream", "bakery", "cake", "fruit", "hotdog", "sandwich", "steak", "pasta", "sushi", "egg", "coffee", "tea"],
-    "05_가구_및_사물": ["desk", "table", "chair", "laptop", "monitor", "mouse", "keyboard", "cellular_telephone", "car", "bicycle", "sofa", "bed", "toilet", "refrigerator", "microwave", "oven", "toaster", "sink", "bookcase"],
-    "06_인물_이미지": ["person", "portrait", "selfie", "face", "man", "woman", "child", "baby", "bride", "groom", "athlete", "performer", "celebrity", "model", "worker", "student"],
-    "07_기타_이미지": [ "clothing", "footwear", "accessory", "sports_equipment", "musical_instrument", "tool", "appliance", "electronic_device", "furniture", "artwork", "logo", "symbol"]
-}
 # ----------------------------------------
 # [핵심] 이미지 분석 및 분류 함수
 # [개선] 이미지 분석 및 분류 함수 개선하여 키워드 기반 분류를 먼저 수행하도록 개선 (신분증 등 중요 문서 보호)
@@ -96,7 +81,7 @@ def analyze_image_final(image_path):
             
             for _, label, score in results:
                 label = label.lower()
-                for category, keywords in AI_CATEGORIES.items():
+                for category, keywords in config.AI_ONLY_CATEGORIES.items():
                     if any(kw in label for kw in keywords):
                         return category
     except Exception as e:
@@ -156,6 +141,7 @@ def run_image_ai_organizing(target_path):
     # AI 결과 루트
     # --------------------------------
     result_root = utils.get_ai_result_root( target_path )
+    #root_path = utils.get_ai_result_root(root_path)
     base_path = Path(target_path)
     count = 0
     print("🧠 AI 이미지 정밀 분석 및 분류 중...")
@@ -177,7 +163,9 @@ def run_image_ai_organizing(target_path):
                 # --------------------------------
                 # 이미 정리된 폴더 제외
                 # --------------------------------
-                if any( p.name.startswith(config.SKIP_FOLDERS) for p in item.parents if p != base_path ):
+                # if any( p.name.startswith(config.SKIP_FOLDERS) for p in item.parents if p != base_path ):
+                #     continue
+                if utils.is_already_organized(item, base_path):
                     continue
                 # --------------------------------
                 # AI 이미지 분석
@@ -199,8 +187,8 @@ def run_image_ai_organizing(target_path):
                 # --------------------------------
                 # AI 분석 결과 폴더
                 # --------------------------------
-                if ( category in config.AI_CATEGORIES.keys() and sw ):
-
+                #if ( category in config.AI_CATEGORIES.keys() and sw ):
+                if category in config.AI_ONLY_CATEGORIES:
                     # AI 전용 결과 폴더
                     dest_dir = ( result_root / category )
                 else:

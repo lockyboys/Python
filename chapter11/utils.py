@@ -16,6 +16,32 @@ from datetime import datetime
 # [개선] get_log_path 함수 추가하여 로그 파일 경로 생성 및 관리
 # --------------------------------
 _current_log_file = None    # 현재 실행 세션의 로그 파일 경로 (초기값 None)
+DATETIME_PATTERN = re.compile( r'(_?((19|20)\d{2}[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12][0-9]|3[01]))(_\d{6})?)' )
+
+def remove_datetime(filename: str) -> str:
+    """모든 확장자 적용, 파일명에 포함된 날짜/시간 패턴 제거"""
+    base = Path(filename).stem
+    ext = Path(filename).suffix
+    base_clean = DATETIME_PATTERN.sub('', base).rstrip('_.')
+    return f"{base_clean}{ext}"
+
+def has_datetime(filename: str) -> bool:
+        return bool(DATETIME_PATTERN.search(filename))
+
+def get_ai_result_root(base_path: Path) -> Path:
+    """AI 결과 저장 폴더는 절대 경로 고정 및 중복 생성 방지"""
+    ai_result_dir = base_path / 'AI_TF_분석결과'
+    if not ai_result_dir.exists():
+        ai_result_dir.mkdir(parents=True, exist_ok=True)
+    return ai_result_dir
+
+def mark_empty_folders(base_path: Path):
+    """빈 폴더에 '_빈폴더' 접미사 붙이기 (작업 후반에 일괄 처리 권장)"""
+    for folder in base_path.rglob('*'):
+        if folder.is_dir():
+            if not any(folder.iterdir()) and not folder.name.endswith('_빈폴더'):
+                folder.rename(folder.with_name(folder.name + '_빈폴더'))
+
 # --------------------------------
 # [복구] 파일명에서 날짜/시간 패턴1 제거 함수 (v17 - Expert Fix11)
 # [개선] 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거하는 함수 추가
@@ -39,40 +65,79 @@ _current_log_file = None    # 현재 실행 세션의 로그 파일 경로 (초�
 #     cleaned = re.sub(pattern, '', filename)
 
 #     return cleaned
-# --------------------------------
+# -------------------------------------------------
 # 파일명 정리
-# --------------------------------
+# -------------------------------------------------
 def cleaning_filename(filename):
-    name = str(filename)
+    """
+    파일명 정리 전용 함수
+
+    해결 내용:
+    - 반복 시간 제거
+    - 날짜 제거
+    - 중복 확장자 제거
+    - _123456 무한 누적 제거
+    - screenshot 날짜 제거
+    """
+    p = Path(filename)
+    stem = p.stem
+    ext = p.suffix
     # --------------------------------
-    # 반복 확장자 제거
-    # photo.jpg.jpg.jpg
+    # 날짜 제거
+    # 2026-03-03
+    # 20260303
     # --------------------------------
-    while True:
-        new_name = re.sub( r'(\.[a-zA-Z0-9]+)(\1)+$', r'\1', name, flags=re.IGNORECASE )
-        if new_name == name:
-            break
-        name = new_name
+    stem = re.sub( r'(20\d{2}[-_ ]?\d{2}[-_ ]?\d{2})', '', stem )
     # --------------------------------
-    # .png_123456.png 제거
-    # .jpg_123456.jpg 제거
+    # 시간 무한 누적 제거
+    # _192920_194047_201218 제거
     # --------------------------------
-    name = re.sub( r'(\.[a-zA-Z0-9]+)_\d{6,8}(\.[a-zA-Z0-9]+)$', r'\1', name, flags=re.IGNORECASE )
+    stem = re.sub( r'(_\d{6})+', '', stem )
     # --------------------------------
-    # _20260303 제거
-    # _2026-03-03 제거
+    # screenshot 뒤 숫자 제거
     # --------------------------------
-    name = re.sub( r'[_\- ]20\d{2}[_\-]?\d{2}[_\-]?\d{2}', '', name )
+    stem = re.sub( r'(스크린샷|screenshot)\s*', '스크린샷_', stem, flags=re.IGNORECASE )
     # --------------------------------
-    # _123456 제거
-    # _123456_222222 제거
+    # 특수문자 정리
     # --------------------------------
-    name = re.sub( r'(_\d{6,8})+', '', name )
+    stem = re.sub(r'__+', '_', stem)
+    stem = re.sub(r'[-_ ]+$', '', stem)
     # --------------------------------
-    # 남은 특수문자 정리
+    # 확장자 중복 제거
     # --------------------------------
-    name = re.sub(r'[_\- ]+$', '', name)
-    return name.strip()
+    ext = re.sub( r'(\.[a-zA-Z0-9]+)(\1)+$', r'\1', ext, flags=re.IGNORECASE )
+
+    clean_name = f"{stem}{ext}"
+
+    return clean_name.strip()
+# --------------------------------
+# 중복 파일명 안전 생성 (핵심: 시간은 단 1번만 붙임)
+# --------------------------------
+def generate_safe_filename(dest_dir, filename):
+    """
+    중복 파일명 안전 생성
+
+    핵심:
+    시간은 단 1번만 붙임
+    """
+
+    filename = cleaning_filename(filename)
+
+    p = Path(filename)
+
+    stem = p.stem
+    ext = p.suffix
+
+    candidate = dest_dir / f"{stem}{ext}"
+
+    if not candidate.exists():
+        return candidate
+
+    now = datetime.now().strftime("%H%M%S")
+
+    candidate = dest_dir / f"{stem}_{now}{ext}"
+
+    return candidate
 # --------------------------------
 # [복구] log_error 함수 개선 (v17 - Expert Fix)
 # [개선] log_error 함수 개선하여 상세 오류 기록 및 예외 처리 강화
@@ -161,6 +226,24 @@ def is_excluded(item_path):
         return False
     except:
         return False
+#-----------------------------------
+# 재탐색 완전 차단 함수 추가
+# ----------------------------------
+def is_already_organized(path_obj, root_path):
+    """
+    이미 정리된 폴더인지 검사
+    """
+
+    path_obj = Path(path_obj)
+    root_path = Path(root_path)
+
+    for parent in path_obj.parents:
+        if parent == root_path:
+            break
+        name = parent.name
+        if name.startswith(config.SKIP_FOLDERS):
+            return True
+    return False
 # --------------------------------
 # 시스템 상태 정밀 진단 함수 (v17 - Expert Fix)
 # [개선] 시스템 상태 정밀 진단 함수 추가하여 라이브러리 및 하드웨어 상태를 상세히 보고하도록 개선
@@ -282,68 +365,56 @@ def get_system_status():
 # 파일 이동
 # --------------------------------
 def move_file(source, dest_dir):
+    """
+    파일 이동 최종 안정화 버전
+    """
     try:
         source = Path(source)
+        dest_dir = Path(dest_dir)
         # --------------------------------
-        # 이미 이동되어 원본이 없으면 종료
+        # 존재 검사
         # --------------------------------
         if not source.exists():
-            return
+            return False
         # --------------------------------
-        # 제외 경로
+        # 제외 검사
         # --------------------------------
         if is_excluded(source):
-            return
+            return False
         # --------------------------------
-        # 대상 폴더 생성
+        # 목적지 생성
         # --------------------------------
         dest_dir.mkdir(parents=True, exist_ok=True)
         # --------------------------------
-        # 전체 파일명 정리
+        # 파일명 정리
         # --------------------------------
-        cleaned_full = cleaning_filename(source.name)
-        cleaned_path = Path(cleaned_full)
-        clean_name = cleaned_path.stem
-        ext = cleaned_path.suffix.lower()
-        if not ext:
-            ext = source.suffix.lower()
+        clean_name = cleaning_filename(source.name)
+        clean_name = remove_datetime(clean_name.name)
         # --------------------------------
-        # 최종 대상
+        # 안전 파일명 생성
         # --------------------------------
-        dest = dest_dir / f"{clean_name}{ext}"
+        dest = generate_safe_filename(dest_dir, clean_name)
         # --------------------------------
-        # 같은 경로면 종료
+        # 이미 같은 위치면 종료
         # --------------------------------
-        try:
-            if source.resolve() == dest.resolve():
-                return
-        except Exception as e:
-            log_error( f"같은 경로면 종료에서 오류 ({source}): {e}" )
-            pass
+        if source.resolve() == dest.resolve():
+            return False
         # --------------------------------
-        # 중복 처리
+        # 이동 재시도
         # --------------------------------
-        if dest.exists():
-            index = 1
-            while True:
-                candidate = ( dest_dir / f"{clean_name}_{index}{ext}" )
-                if not candidate.exists():
-                    dest = candidate
-                    break
-                index += 1
-        # --------------------------------
-        # 이동
-        # --------------------------------
-        shutil.move(str(source), str(dest))
-        # --------------------------------
-        # 이동 성공 로그
-        # --------------------------------
-        status = f"✅ {source.name} -> {dest}"
-        if config.SHOW_PROGRESS:
-            print(status)
-        log_message(status)
+        for _ in range(3):
+            try:
+                shutil.move(str(source), str(dest))
+                print(f"📦 이동: {source.name} → {dest}")
+                 # - 2. 로그 파일에 이동 기록 저장 (항상 기록)
+                log_message(f"MOVE_SUCCESS: {source.absolute()} -> {dest.absolute()}")
+                return True
+            except PermissionError:
+                time.sleep(0.5)
+        return False
     except Exception as e:
-        log_error( f"이동 오류 ({source}): {e}" )
+        log_error(f"move_file 오류 ({source}): {e}")
+        return False
 # --------------------------------
 # 빈 폴더 마킹 함수 개선 (v17 - Expert Fix)
 # [개선] mark_empty_folders 함수 개선하여 빈 폴더를 찾아 '_빈폴더' 마킹 추가
@@ -370,63 +441,47 @@ def move_file(source, dest_dir):
 #     except Exception as e:
 #         log_error(f"빈 폴더 마킹 중 오류: {e}")
 ## --------------------------------
-# 빈 폴더 마킹
+# 빈 폴더 이름 정리
 # --------------------------------
-def mark_empty_folders(target_path):
-    try:
-        protected = (
-            "01_",
-            "02_",
-            "03_",
-            "04_",
-            "05_",
-            "06_",
-            "07_",
-            "08_",
-            "09_",
-            "10_",
-            "11_",
-            "12_",
-            "13_",
-            "14_",
-            "15_",
-            "16_",
-            "17_",
-            "18_",
-            "99_",
-            "AI_TF_",
-        )
-        for root, dirs, files in os.walk(
-            target_path,
-            topdown=False
-        ):
-            for d in dirs:
-                dir_path = Path(root) / d
-                if is_excluded(dir_path):
-                    continue
-                # --------------------------------
-                # 기본 폴더 보호
-                # --------------------------------
-                if d.startswith(protected):
-                    continue
-                # --------------------------------
-                # 이미 빈폴더 표시
-                # --------------------------------
-                if d.endswith("_빈폴더"):
-                    continue
-                # --------------------------------
-                # 실제 비었는지
-                # --------------------------------
-                if any(dir_path.iterdir()):
-                    continue
-                try:
-                    new_path = ( dir_path.parent / f"{d}_빈폴더" )
-                    dir_path.rename(new_path)
-                    print( f"📁 빈 폴더: {new_path.name}" )
-                except Exception as e:
-                    log_error( f"빈 폴더 이름 변경 실패: {e}" )
-    except Exception as e:
-        log_error( f"빈 폴더 마킹 오류: {e}" )
+def mark_empty_folders(root_path):
+    """
+    빈 폴더 이름 정리
+    """
+    root = Path(root_path)
+    folders = sorted( [p for p in root.rglob('*') if p.is_dir()], reverse=True )
+    for folder in folders:
+        try:
+            if folder == root:
+                continue
+            if any(x in folder.name for x in [
+                'AI_TF_분석결과',
+                '__pycache__',
+                '.git'
+            ]):
+                continue
+            items = list(folder.iterdir())
+            is_empty = len(items) == 0
+            name = folder.name
+            # ----------------------------
+            # 빈폴더 처리
+            # ----------------------------
+            if is_empty:
+                if not name.endswith('_빈폴더'):
+                    new_path = folder.parent / f"{name}_빈폴더"
+                    if not new_path.exists():
+                        folder.rename(new_path)
+            # ----------------------------
+            # 내용 생기면 복구
+            # ----------------------------
+            else:
+                if name.endswith('_빈폴더'):
+                    clean_name = name.replace('_빈폴더', '')
+                    new_path = folder.parent / clean_name
+                    if not new_path.exists():
+                        folder.rename(new_path)
+
+        except Exception as e:
+            log_error(f"빈폴더 처리 오류 ({folder}): {e}")
 # --------------------------------
 # 경로 유효성 검사 함수 추가 (v17 - Expert Fix)
 # [개선] validate_path 함수 추가하여 입력된 경로의 유효성을 검사하도록 개선
@@ -596,12 +651,12 @@ def get_initial_files():
             log_error( f"초기 파일 반환 오류 ({f}): {e}" )
     return result
 
-# --------------------------------
-# AI 결과 루트 반환
-# --------------------------------
-def get_ai_result_root(base_path):
+# # --------------------------------
+# # AI 결과 루트 반환
+# # --------------------------------
+# def get_ai_result_root(base_path):
 
-    result_root = ( Path(base_path) / config.AI_RESULT_DIR )
+#     result_root = ( Path(base_path) / config.AI_RESULT_DIR )
 
-    result_root.mkdir( parents=True, exist_ok=True )
-    return result_root
+#     result_root.mkdir( parents=True, exist_ok=True )
+#     return result_root

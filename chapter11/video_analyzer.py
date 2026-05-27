@@ -72,6 +72,7 @@ def group_videos(target_path):
     # AI 결과 루트
     # --------------------------------
     result_root = utils.get_ai_result_root( target_path )
+    #root_path = utils.get_ai_result_root(root_path)
     base_path = Path(target_path)
     # --------------------------------
     # 일반 영상 결과 폴더
@@ -97,7 +98,9 @@ def group_videos(target_path):
                 # --------------------------------
                 # 결과 폴더 제외
                 # --------------------------------
-                if any( p.name.startswith(config.SKIP_FOLDERS)  for p in f.parents if p != base_path ):
+                #  if any( p.name.startswith(config.SKIP_FOLDERS)  for p in f.parents if p != base_path ):
+                #    continue
+                if utils.is_already_organized(f, base_path):
                     continue
                     # --------------------------------
                     # 전체 해체 모드면

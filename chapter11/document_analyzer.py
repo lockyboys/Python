@@ -65,18 +65,18 @@ def extract_text(file_path):
                 text += page.get_text()
                 if len(text) > config.MAX_DOC_TEXT_LENGTH: break
             doc.close()
-        elif ext in [".docx", ".doc"] and DOCX_READY:
+        elif ext in [".docx", ".doc"] and config.DOCX_READY:
             doc = Document(file_path)
             text = "\n".join([para.text for para in doc.paragraphs[:50]])
-        elif ext in [".xlsx", ".xls"] and EXCEL_READY:
+        elif ext in [".xlsx", ".xls"] and config.EXCEL_READY:
             wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
             text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
-        elif ext in [".pptx", ".ppt"] and PPT_READY:
+        elif ext in [".pptx", ".ppt"] and config.PPT_READY:
             prs = Presentation(file_path)
             for slide in prs.slides[:10]:
                 for shape in slide.shapes:
                     if hasattr(shape, "text"): text += shape.text + " "
-        elif ext in [".hwp", ".hwpx"] and HWP_READY:
+        elif ext in [".hwp", ".hwpx"] and config.HWP_READY:
             f = olefile.OleFileIO(file_path)
             if 'PrvText' in f.listdir():
                 text = f.openstream('PrvText').read().decode('utf-16', errors='ignore')
@@ -155,6 +155,7 @@ def run_document_organizing(target_path):
     # AI 결과 루트
     # --------------------------------
     result_root = utils.get_ai_result_root( target_path )
+    #root_path = utils.get_ai_result_root(root_path)
     base_path = Path(target_path)
     count = 0
     print("📄 문서 지능형 내용 분석 및 분류 중...")
@@ -176,7 +177,9 @@ def run_document_organizing(target_path):
                 # --------------------------------
                 # 이미 정리된 폴더 제외
                 # --------------------------------
-                if any( p.name.startswith(config.SKIP_FOLDERS) for p in item.parents if p != base_path ):
+                # if any( p.name.startswith(config.SKIP_FOLDERS) for p in item.parents if p != base_path ):
+                #     continue
+                if utils.is_already_organized(item, base_path):
                     continue
                 # --------------------------------
                 # 문서 내용 분석
