@@ -7,151 +7,49 @@ import config
 import utils
 import image_analyzer
 from collections import Counter
-import utils
-
-EXCLUDE_LIST = [
-    "AI_TF_분석결과",
-    "logs",
-    "temp",
-    "$RECYCLE.BIN",
-    "System Volume Information"
-]
-# -----------------------------------------
+#-----------------------------------------
 # 영상 분석 및 그룹화 모듈
 # [개선] 영상 분석 및 그룹화 모듈 개선하여 영상 분석 시 프레임 추출 간격, 한 영상당 최대 추출 장수 등을 설정할 수 있도록 개선
 # [개선] 영상 분석 및 그룹화 모듈 개선하여 분석 실패 시에도 기본 분류로 이동하도록 보완
 # [개선] 영상 분석 및 그룹화 모듈 개선하여 분석 과정에서 제외 폴더 내 파일 보호 로직 추가 (해체 모드가 아닐 때)
 # [개선] 영상 분석 및 그룹화 모�듈 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
-# -----------------------------------------
-# def group_videos(target_path):
-#     # --------------------------------
-#     # AI 결과 루트
-#     # --------------------------------
-#     result_root = utils.get_ai_result_root( target_path )
-#     target = Path(target_path)
-#     videos = []
-    
-#     try:
-#         #search_pattern = '**/*' if config.RECURSIVE_SCAN else '*'
-#         #for f in target.glob(search_pattern):
-#         all_files = utils.get_initial_files()
-
-#         # for f in all_files:
-#         #     if f.is_file() and f.suffix.lower() in config.VIDEO_EXTENSIONS:
-#         #         if any(p.name.startswith(('0', '영상_그룹')) for p in f.parents if p != target):
-#         #             continue
-#         #         videos.append({'path': f, 'time': datetime.fromtimestamp(f.stat().st_mtime)})
-#         all_files = utils.get_initial_files()
-
-#         for f in all_files:
-
-#             if f.suffix.lower() not in ( config.VIDEO_EXTENSIONS ):
-#                 continue
-
-#         target = result_root / "07_영상"
-
-#         utils.move_file(f, target)
-#         if not videos: return 0
-#         videos.sort(key=lambda x: x['time'])
-
-#         count = 0
-#         current_group = [videos[0]]
-#         for i in range(1, len(videos)):
-#             if (videos[i]['time'] - videos[i-1]['time']) < timedelta(hours=4):
-#                 current_group.append(videos[i])
-#             else:
-#                 count += _process_video_group(target, current_group)
-#                 current_group = [videos[i]]
-#         count += _process_video_group(target, current_group)
-#         return count
-#     except Exception as e:
-#         utils.log_error(f"영상 그룹화 프로세스 오류: {e}")
-#         return 0
+#-----------------------------------------
 def group_videos(target_path):
-    # --------------------------------
-    # AI 결과 루트
-    # --------------------------------
-    result_root = utils.get_ai_result_root( target_path )
-    #root_path = utils.get_ai_result_root(root_path)
-    base_path = Path(target_path)
-    # --------------------------------
-    # 일반 영상 결과 폴더
-    # --------------------------------
-    video_root = ( base_path / "07_영상" )
+    target = Path(target_path)
     videos = []
+    
     try:
-        # --------------------------------
-        # 최초 상태 파일만 탐색
-        # --------------------------------
-        all_files = utils.get_initial_files()
-        for f in all_files:
-            try:
-                # 파일만 처리
-                if not f.is_file():
+        search_pattern = '**/*' if config.RECURSIVE_SCAN else '*'
+        for f in target.glob(search_pattern):
+            if f.is_file() and f.suffix.lower() in config.VIDEO_EXTENSIONS:
+                if any(p.name.startswith(('0', '영상_그룹')) for p in f.parents if p != target):
                     continue
-                # 영상 확장자 검사
-                if ( f.suffix.lower()  not in config.VIDEO_EXTENSIONS ):
-                    continue
-                # # 결과 폴더 제외
-                # if any( p.name.startswith( config.SKIP_FOLDERS ) for p in f.parents ):
-                #     continue
-                # --------------------------------
-                # 결과 폴더 제외
-                # --------------------------------
-                #  if any( p.name.startswith(config.SKIP_FOLDERS)  for p in f.parents if p != base_path ):
-                #    continue
-                if utils.is_already_organized(f, base_path):
-                    continue
-                    # --------------------------------
-                    # 전체 해체 모드면
-                    # 기존 영상 폴더는 허용
-                    # --------------------------------
-                    if config.UNPACK_ALL:
-                        # AI 결과 폴더만 제외
-                        if any( p.name == config.AI_RESULT_DIR for p in f.parents ):
-                            continue
-                    else:
-                        continue
-                videos.append({ 'path': f, 'time': datetime.fromtimestamp( f.stat().st_mtime ) })
-            except Exception as e:
-                utils.log_error( f"영상 정보 분석 실패 ({f}): {e}" )
-        # 영상 없으면 종료
-        if not videos:
-            return 0
-        # --------------------------------
-        # 시간순 정렬
-        # --------------------------------
-        videos.sort( key=lambda x: x['time'] )
+                videos.append({'path': f, 'time': datetime.fromtimestamp(f.stat().st_mtime)})
+        
+        if not videos: return 0
+        videos.sort(key=lambda x: x['time'])
+
         count = 0
         current_group = [videos[0]]
-        # --------------------------------
-        # 시간 기준 그룹화
-        # --------------------------------
         for i in range(1, len(videos)):
-            time_diff = ( videos[i]['time'] - videos[i - 1]['time'] )
-            # 4시간 이내면 같은 그룹
-            if time_diff < timedelta(hours=4):
-                current_group.append( videos[i] )
+            if (videos[i]['time'] - videos[i-1]['time']) < timedelta(hours=4):
+                current_group.append(videos[i])
             else:
-                count += _process_video_group( video_root, current_group )
+                count += _process_video_group(target, current_group)
                 current_group = [videos[i]]
-        # --------------------------------
-        # 마지막 그룹 처리
-        # --------------------------------
-        count += _process_video_group( video_root, current_group )
+        count += _process_video_group(target, current_group)
         return count
     except Exception as e:
-        utils.log_error( f"영상 그룹화 프로세스 오류: {e}" )
+        utils.log_error(f"영상 그룹화 프로세스 오류: {e}")
         return 0
-
-# -----------------------------------------
+#-----------------------------------------
 # 영상 그룹 처리 함수
 # [개선] 영상 그룹 처리 함수 개선하여 분석된 카테고리를 기반으로 그룹 폴더 이름을 생성하도록 개선
 # [개선] 영상 그룹 처리 함수 개선하여 분석된 카테고리가 없는 경우 기본적으로 '일반영상'으로 분류하도록 개선
 # [개선] 영상 그룹 처리 함수 개선하여 분석된 카테고리에 날짜/시간 패턴이 포함된 경우, 패턴을 제거하고 카테고리명만 폴더 이름에 포함하도록 개선
 # [개선] 영상 그룹 처리 함수 개선하여 분석된 카테고리가 이미 'Group_'으로 시작하는 경우는 원래 분류된 폴더로 간주하여 마킹에서 제외하도록 개선
 # [개선] 영상 그룹 처리 함수 개선하여 그룹 처리 중 오류 발생 시 상세 오류 메시지 출력 및 로그 기록 강화
-# -----------------------------------------
+#-----------------------------------------
 def _process_video_group(target, group):
     try:
         all_categories = []
@@ -177,12 +75,12 @@ def _process_video_group(target, group):
     except Exception as e:
         utils.log_error(f"영상 그룹 처리 오류: {e}")
         return 0
-# -----------------------------------------
+# --------------------------------
 # 영상 개별 분석 함수
 # [개선] 영상 개별 분석 함수 개선하여 영상에서 여러 프레임을 추출하여 분석하도록 개선
 # [개선] 영상 개별 분석 함수 개선하여 분석된 카테고리를 리스트로 반환하도록 개선
 # [개선] 영상 개별 분석 함수 개선하여 분석 중 발생하는 오류는 로그에 기록하되, 시스템이 계속 작동   하도록 예외 처리 강화
-# -----------------------------------------
+#-----------------------------------------
 def _analyze_video_multi_frames(video_path):
     categories = []
     try:

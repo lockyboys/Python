@@ -65,18 +65,18 @@ def extract_text(file_path):
                 text += page.get_text()
                 if len(text) > config.MAX_DOC_TEXT_LENGTH: break
             doc.close()
-        elif ext in [".docx", ".doc"] and config.DOCX_READY:
+        elif ext in [".docx", ".doc"] and DOCX_READY:
             doc = Document(file_path)
             text = "\n".join([para.text for para in doc.paragraphs[:50]])
-        elif ext in [".xlsx", ".xls"] and config.EXCEL_READY:
+        elif ext in [".xlsx", ".xls"] and EXCEL_READY:
             wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
             text = " ".join([str(c) for row in wb.active.iter_rows(max_row=50, values_only=True) for c in row if c])
-        elif ext in [".pptx", ".ppt"] and config.PPT_READY:
+        elif ext in [".pptx", ".ppt"] and PPT_READY:
             prs = Presentation(file_path)
             for slide in prs.slides[:10]:
                 for shape in slide.shapes:
                     if hasattr(shape, "text"): text += shape.text + " "
-        elif ext in [".hwp", ".hwpx"] and config.HWP_READY:
+        elif ext in [".hwp", ".hwpx"] and HWP_READY:
             f = olefile.OleFileIO(file_path)
             if 'PrvText' in f.listdir():
                 text = f.openstream('PrvText').read().decode('utf-16', errors='ignore')
@@ -123,77 +123,23 @@ def analyze_document_content(file_path):
 # [개선] 분석 시작 및 완료 로그 추가
 # [개선] 분석 중인 파일명 로그 추가 (선택적)
 #  ----------------------------------------
-# def run_document_organizing(target_path):
-#     result_root = utils.get_ai_result_root(target_path)
-#     target = Path(target_path)
-#     count = 0
-#     print("📄 문서 지능형 내용 분석 및 분류 중...")
-#     utils.log_message("📄 문서 지능형 내용 분석 및 분류 중 ...", "INFO")
-#     try:
-#         #pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
-#         #doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
-#         #all_files = utils.get_initial_files( config.initial_folders, config.initial_files )
-#         #all_files = utils.get_initial_files()
-
-#         # doc_files = [ f for f in all_files if f.suffix.lower() in config.DOCUMENT_EXTENSIONS ]
-#         doc_files = [ f for f in utils.get_initial_files() if f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
-#         for item in doc_files:
-#             # [핵심] 경로 기반 제외 체크 (해체 모드가 아닐 때)
-#             if utils.is_excluded(item): continue
-#             if not config.UNPACK_ALL:
-#                 if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
-#                     continue
-#             category = analyze_document_content(item)
-#             target = result_root / category
-#             utils.move_file(item, target)
-#             count += 1
-#     except Exception as e:
-#         utils.log_error(f"문서 정리 프로세스 오류: {e}")
-#     return count
 def run_document_organizing(target_path):
-    # --------------------------------
-    # AI 결과 루트
-    # --------------------------------
-    result_root = utils.get_ai_result_root( target_path )
-    #root_path = utils.get_ai_result_root(root_path)
-    base_path = Path(target_path)
+    target = Path(target_path)
     count = 0
     print("📄 문서 지능형 내용 분석 및 분류 중...")
-    utils.log_message( "📄 문서 지능형 내용 분석 및 분류 중 ...", "INFO" )
+    utils.log_message("📄 문서 지능형 내용 분석 및 분류 중 ...", "INFO")
     try:
-        # --------------------------------
-        # 최초 상태 파일만 탐색
-        # --------------------------------
-        doc_files = [ f for f in utils.get_initial_files() if ( f.suffix.lower() in config.DOCUMENT_EXTENSIONS ) ]
+        pattern = '**/*' if (config.RECURSIVE_SCAN or config.UNPACK_ALL) else '*'
+        doc_files = [f for f in target.glob(pattern) if f.is_file() and f.suffix.lower() in config.DOCUMENT_EXTENSIONS]
         for item in doc_files:
-            try:
-                # 제외 경로
-                if utils.is_excluded(item):
+            # [핵심] 경로 기반 제외 체크 (해체 모드가 아닐 때)
+            if utils.is_excluded(item): continue
+            if not config.UNPACK_ALL:
+                if any(p.name.startswith(('0', '1', 'AI_TF', '영상_그룹')) for p in item.parents if p != target):
                     continue
-                # 결과 폴더 재탐색 방지
-                # if not config.UNPACK_ALL:
-                #     if any( p.name.startswith( config.SKIP_FOLDERS ) for p in item.parents if p != base_path ):
-                #         continue
-                # --------------------------------
-                # 이미 정리된 폴더 제외
-                # --------------------------------
-                # if any( p.name.startswith(config.SKIP_FOLDERS) for p in item.parents if p != base_path ):
-                #     continue
-                if utils.is_already_organized(item, base_path):
-                    continue
-                # --------------------------------
-                # 문서 내용 분석
-                # --------------------------------
-                category = analyze_document_content( item )
-                # --------------------------------
-                # 일반 문서 결과 폴더
-                # --------------------------------
-                dest_dir = ( base_path / category )
-                # --------------------------------
-                # 파일 이동
-                # --------------------------------
-                utils.move_file( item, dest_dir )
-                count += 1
-            except Exception as e: utils.log_error( f"문서 처리 실패 ({item}): {e}" )
-    except Exception as e: utils.log_error( f"문서 정리 프로세스 오류: {e}" )
+            category = analyze_document_content(item)
+            utils.move_file(item, target / category)
+            count += 1
+    except Exception as e:
+        utils.log_error(f"문서 정리 프로세스 오류: {e}")
     return count
