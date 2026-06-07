@@ -1,124 +1,169 @@
-# [config.py] - 전체 시스템 설정 파일 (v16 - Advanced Control)
-# --------------------------------
-# 1. 경로 및 로그 설정
-# 전체 시스템의 설정을 한 곳에서 관리하는 파일입니다.
-# 사용자는 이 파일의 설정을 변경하여 시스템의 동작 방식을 조절할 수 있습니다.
-# --------------------------------
-BASE_LOG_DIR = r"C:\source\Python"
-LOG_FILE_PREFIX = "error_log"
-# --------------------------------
-# 2. 제어 변수 (사용자가 직접 변경 가능)
-#하위 폴더까지 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = True (기본값)
-# 현재 폴더만 깔끔하게 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = False
-# [개선] RECURSIVE_SCAN과 UNPACK_ALL 설정에 따른 스캔 및 분류 로직 개선
-# [개선] SHOW_PROGRESS 설정에 따른 화면 출력 제어 로직 개선
-# [개선] LoG_FILE_YN 설정에 따른 로그 파일 기록 제어 로직 개선
-# [개선] 제어 변수에 대한 상세 설명 추가 및 사용 시 주의사항
-# [개선] 제어 변수 변경 시 시스템 동작에 미치는 영향에 대한 안내 메시지 추가
-# [개선] 제어 변수 변경 시 시스템 상태 진단 보고서에 해당 설정 값 포함
-# [개선] 제어 변수 변경 시 시스템 상태 진단 보고서에 해당 설정 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-#---------------------------------
-#하위 폴더까지 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = True (기본값)
-# 현재 폴더만 깔끔하게 정리하고 싶을 때: config.py에서 RECURSIVE_SCAN = False
-RECURSIVE_SCAN = True      # 하위 폴더까지 스캔할지 여부 (주의: 대용량 폴더에서는 성능 저하 가능)
-UNPACK_ALL = True         # 하위 구조를 모두 해체할지 여부 (해체 시 모든 파일이 최상위 폴더로 이동, 구조 유지 시 기존 폴더 구조를 최대한 보존)
-SHOW_PROGRESS = True      # 화면(콘솔)에 파일 이동 과정을 실시간으로 출력할지 여부 (대용량 폴더에서는 출력이 많아져 성능 저하 가능)
-LoG_FILE_YN = True         # 로그 파일에 이동된 파일과 대상 폴더를 기록할지 여부 (로그 파일이 너무 커질 수 있으니 필요에 따라 조절)
-#-----------------------------------------
-# 라이브러리 로드 및 상태 체크
-# [개선] 라이브러리 로드 실패 시에도 시스템이 계속 작동하도록 예외 처리 강화
-# [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
-# [개선] 문서 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정
-#-----------------------------------------
-PDF_READY = False   # PDF 분석 라이브러리(fitz) 로드 상태
-DOCX_READY = False  # Word 분석 라이브러리(docx) 로드 상태
-EXCEL_READY = False # Excel 분석 라이브러리(openpyxl) 로드 상태
-PPT_READY = False   # PPT 분석 라이브러리(pptx) 로드 상태
-HWP_READY = False   # HWP 분석 라이브러리(olefile) 로드 상태
-#--------------------------------
-# 3. 제외 리스트
-# 정리에서 제외할 폴더 및 파일 이름을 리스트로 관리합니다.
-# [개선] 제외 리스트에 폴더 경로뿐만 아니라 파일 이름도 포함하도록 개선
-# [개선] 제외 리스트에 포함된 항목이 경로의 어느 위치에 있든지 해당 항목이 포함된 파일이나 폴더는 모두 제외하도록 개선
-# --------------------------------
-EXCLUDE_LIST = [            # 정리에서 제외할 폴더 및 파일 이름 리스트
-    "System Volume Information", "$RECYCLE.BIN", ".git", ".vscode", 
-    "main_organizer.py", "config.py", "utils.py", "video_analyzer.py", 
-    "image_analyzer.py", "document_analyzer.py", "gpu_setup_guide.md", 
-    "zlibwapi_fix_guide.md", "error_log.txt", "MS 오피스"
+from pathlib import Path
+
+APP_NAME = "Smart File Organizer"
+CURRENT_PROJECT_DIR = Path(__file__).parent.absolute()
+
+# 로그 파일 생성 방식입니다. 실행 대상 폴더 아래의 Logs 폴더로 변경됩니다.
+LOG_FILE_YN = True
+LOG_DATE_YN = True
+BASE_LOG_DIR = str(CURRENT_PROJECT_DIR / "Logs")
+LOG_FILE_PREFIX = "organizer_log"
+LOG_FILE_NAME = None
+
+# 정리 결과와 원본 격리 폴더 이름입니다.
+RESULT_FOLDER_NAME = "50_AI_분석결과"
+ISOLATION_FOLDER_NAME = "00_원본_격리보관"
+
+# True면 하위 폴더 안의 파일을 먼저 원본 격리 폴더로 모읍니다.
+UNPACK_ALL = True
+SHOW_PROGRESS = True
+
+# 실수로 시스템 폴더를 정리하지 않도록 막는 보호 키워드입니다.
+SYSTEM_PROTECTED_KEYWORDS = [
+    "c:\\windows",
+    "c:\\source",
+    "c:\\program files",
+    "c:\\program files (x86)",
+    "c:\\programdata",
+    "c:\\users\\all users",
 ]
-# --------------------------------
-# 4. 로그 파일 설정
-# 로그 파일의 위치와 이름을 설정합니다.
-# [개선] 로그 파일 설정을 추가하여 로그 파일의 위치와 이름을 설정할 수 있도록 개선
-# [개선] 로그 파일 설정에 대한 설명 추가 및 사용 시 주의사항 안내
-# [개선] 로그 파일 설정에 따른 로그 기록 로직 개선
-# [개선] 로그 파일 설정에 따른 시스템 상태 진단 보고서에 해당 설정 값 포함
-# [개선] 로그 파일 설정에 따른 시스템 상태 진단 보고서에 해당 설정 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-# --------------------------------
-LOG_FILE_PATH = "error_log.txt"  # 로그 파일 저장 위치 및 이름
-# --------------------------------
-# 5. 키워드 및 확장자 기반 분류 규칙
-# 키워드 및 확장자 기반 분류 규칙을 딕셔너리 형태로 관리합니다.
-# [개선] 키워드 및 확장자 기반 분류 규칙을 추가하여 문서 분석 및 분류에 활용할 수 있도록 개선
-# [개선] 키워드 및 확장자 기반 분류 규칙에 대한 설명 추가 및    사용 시 주의사항 안내
-# [개선] 키워드 및 확장자 기반 분류 규칙에 따른 문서 분석 및 분류 로직 개선
-# [개선] 키워드 및 확장자 기반 분류 규칙에 따른 시스템 상태 진단 보고서에 해당 규칙 값 포함
-# [개선] 키워드 및 확장자 기반 분류 규칙에 따른 시스템 상태 진단 보고서에 해당 규칙 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-# --------------------------------
+
+VIDEO_EXTENSIONS = [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm"]
+DOCUMENT_EXTENSIONS = [
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".dot",
+    ".dotx",
+    ".dotm",
+    ".xlsx",
+    ".xls",
+    ".xlsm",
+    ".xlt",
+    ".xltx",
+    ".xltm",
+    ".pptx",
+    ".ppt",
+    ".pptm",
+    ".pps",
+    ".ppsx",
+    ".ppsm",
+    ".pot",
+    ".potx",
+    ".potm",
+    ".hwp",
+    ".hwpx",
+    ".hml",
+    ".rtf",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".txt",
+    ".csv",
+    ".md",
+]
+IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp", ".heic"]
+AUDIO_EXTENSIONS = [".mp3", ".wav", ".flac", ".ogg", ".wma", ".m4a", ".aac"]
+
+# 프로그램이 미리 만들어 두는 분류 폴더 이름입니다.
+DOC_FOLDER = "01_중요문서_및_행정"
+VIDEO_FOLDER = "04_메신저_및_영상"
+NATURE_IMAGE_FOLDER = "07_AI_자연_및_국내외풍경"
+CITY_IMAGE_FOLDER = "08_AI_도시_랜드마크_및_건축물"
+PEOPLE_IMAGE_FOLDER = "09_AI_인물_및_일상_오류"
+AUDIO_FOLDER = "10_오디오_음성"
+OTHER_FOLDER = "98_미분류_기타"
+
+PRE_BUILD_FOLDERS = [
+    DOC_FOLDER,
+    VIDEO_FOLDER,
+    NATURE_IMAGE_FOLDER,
+    CITY_IMAGE_FOLDER,
+    PEOPLE_IMAGE_FOLDER,
+    AUDIO_FOLDER,
+    OTHER_FOLDER,
+]
+
+PRE_BUILD_FILES = {
+    DOC_FOLDER: [
+        "중요문서_보안주의.txt",
+        "문서정리_매뉴얼.txt",
+    ],
+    OTHER_FOLDER: [
+        "미분류_확인필요.txt",
+    ],
+}
+
+DEFAULT_DOC_FOLDER = DOC_FOLDER
+DEFAULT_VIDEO_FOLDER = VIDEO_FOLDER
+DEFAULT_IMAGE_FOLDER = PEOPLE_IMAGE_FOLDER
+DEFAULT_AUDIO_FOLDER = AUDIO_FOLDER
+DEFAULT_OTHER_FOLDER = OTHER_FOLDER
+CORRUPTED_IMAGE_FOLDER = OTHER_FOLDER
+
+EXCLUDE_LIST = {"Thumbs.db", "desktop.ini", "$RECYCLE.BIN"}
+
+# 문서 파일명에 이 단어들이 있으면 중요 문서 폴더로 보냅니다.
 KEYWORD_RULES = {
-    "01_중요문서": ["신분증", "계약서", "등록증", "확인서", "통지서", "등본", "신고필증", "검진", "영수증", "명세서", "증명원", "증명서", "인감", "주민등록", "운전면허", "여권", "건강보험", "국세", "지방세", "세금", "보험", "공과", "청구서", "청첩장", "통장", "카드", "정부", "공공기관", "행정", "법원", "검찰", "경찰", "소송", "판결", "증인", "계약", "게약"],
-    "02_AI_생성": ["ChatGPT", "Gemini", "DALL-E", "Generated", "AI"],
-    "03_업무_프로젝트": ["GECKO", "공공근로", "팸플릿", "포스터", "poster", "사업자", "기획", "보고서", "발표", "회의"],
-    "04_메신저": ["KakaoTalk", "LINE", "카톡", "라인", "photo_", "IMG_"],
-    "05_금융_법률": ["은행", "복권", "행정소송", "법", "전세", "보험", "주식", "투자", "가계부"]
+    DOC_FOLDER: [
+        "매출",
+        "계좌",
+        "거래",
+        "영수증",
+        "계약",
+        "보고",
+        "증명",
+        "세금",
+        "invoice",
+        "receipt",
+        "contract",
+        "report",
+    ],
 }
-# --------------------------------
-# 6. 확장자 기반 분류 규칙
-# 확장자 기반 분류 규칙을 딕셔너리 형태로 관리합니다.
-# [개선] 확장자 기반 분류 규칙을 추가하여 문서 분석 및 분류에 활용할 수 있도록 개선
-# [개선] 확장자 기반 분류 규칙에 대한 설명 추가 및 사용 시 주의사항 안내
-# [개선] 확장자 기반 분류 규칙에 따른 문서 분석 및 분류 로직 개선
-# [개선] 확장자 기반 분류 규칙에 따른 시스템 상태 진단 보고서에 해당 규칙 값 포함
-# [개선] 확장자 기반 분류 규칙에 따른 시스템 상태 진단 보고서에 해당 규칙 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-# --------------------------------
+
+# 이미지 파일명에 들어간 단어로 자연/도시/인물 폴더를 고릅니다.
+FILENAME_ROOM_RULES = {
+    NATURE_IMAGE_FOLDER: [
+        "풍경",
+        "바다",
+        "산",
+        "하늘",
+        "여행",
+        "nature",
+        "beach",
+        "sea",
+        "mountain",
+        "trip",
+        "travel",
+    ],
+    CITY_IMAGE_FOLDER: [
+        "도시",
+        "빌딩",
+        "건축",
+        "아파트",
+        "타워",
+        "city",
+        "building",
+        "tower",
+        "street",
+    ],
+    PEOPLE_IMAGE_FOLDER: [
+        "사람",
+        "인물",
+        "가족",
+        "셀카",
+        "일상",
+        "face",
+        "person",
+        "selfie",
+        "kakao",
+    ],
+}
+
+# 파일 확장자만 보고 최종 폴더를 결정할 때 쓰는 기본 규칙입니다.
 EXTENSION_RULES = {
-    "06_영상_그룹": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"],
-    "07_압축_파일": [".zip", ".rar", ".7z", ".tar", ".gz"],
-    "08_일반_문서[PDF]": [".pdf"],
-    "09_일반_문서[텍스트]": [".txt"],
-    "10_일반_문서[MS-Office]": [".docx", ".doc", ".xlsx", ".xls", ".csv", ".pptx", ".ppt"],
-    "11_일반_문서[한컴]": [".hwp", ".hwpx"],
-    "12_프로그램파일[C_언어]": [".h", ".c", ".cpp", ".cs"],
-    "13_프로그램파일[HTML_관련]": [".html", ".css", ".js", ".php", ".json", ".xml"],
-    "14_프로그램파일[파이썬_등]": [".py", ".ipynb"],
-    "15_프로그램파일[기타]": [".java", ".class", ".sql", ".yaml", ".yml", ".md"],
-    "16_시스템파일": [".ini", ".dll", ".msg", ".sys", ".tmp"],
-    "17_실행파일": [".exe", ".bat", ".ps1", ".msi", ".msix"],
-    "18_백업_및_기타": [".bak", ".old", ".log"]
+    VIDEO_FOLDER: VIDEO_EXTENSIONS,
+    DOC_FOLDER: DOCUMENT_EXTENSIONS,
+    PEOPLE_IMAGE_FOLDER: IMAGE_EXTENSIONS,
+    AUDIO_FOLDER: AUDIO_EXTENSIONS,
 }
-# --------------------------------
-# 7. 미디어 확장자 정의
-# 이미지, 영상, 문서 등 미디어 파일의 확장자를 리스트 형태로 관리
-# [개선] 미디어 확장자 정의를 추가하여 이미지, 영상, 문서 등 미디어 파일의 확장자를 관리할 수 있도록 개선
-# [개선] 미디어 확장자 정의에 대한 설명 추가 및 사용 시 주의사항 안내
-# [개선] 미디어 확장자 정의에 따른 문서 분석 및 분류 로직 개선
-# [개선] 미디어 확장자 정의에 따른 시스템 상태 진단 보고서에 해당 확장자 리스트 값 포함
-# [개선] 미디어 확장자 정의에 따른 시스템 상태 진단 보고서에 해당 확장자 리스트 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-# --------------------------------
-IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".heic", ".webp"]
-VIDEO_EXTENSIONS = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"]
-DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".hwp", ".hwpx", ".txt"]
-# --------------------------------
-# 8. 분석 세부 설정
-# 영상 분석 시 프레임 추출 간격, 한 영상당 최대 추출 장수, 문서에서 읽어들일 최대 글자 수, 키워드 유사도 매칭 임계값 등을 설정합니다.
-# [개선] 분석 세부 설정을 추가하여 영상 분석 시 프레임 추출 간격, 한 영상당 최대 추출 장수, 문서에서 읽어들일 최대 글자 수, 키워드 유사도 매칭 임계값 등을 설정할 수 있도록 개선
-# [개선] 분석 세부 설정에 대한 설명 추가 및 사용 시 주의사항 안내
-# [개선] 분석 세부 설정에 따른 영상 분석 및 문서 분석 로직 개선
-# [개선] 분석 세부 설정에 따른 시스템 상태 진단 보고서에 해당 설정 값 포함
-# [개선] 분석 세부 설정에 따른 시스템 상태 진단 보고서에 해당 설정 값이 시스템 동작에 미치는 영향에 대한 설명 추가
-# --------------------------------  
-MINUTES_PER_FRAME = 10      # 영상 분석 시 프레임 추출 간격 (분 단위)
-MAX_FRAMES_PER_VIDEO = 20   # 한 영상당 최대 추출 장수 (너무 긴 영상은 분석 부담이 커서 제한)
-MAX_DOC_TEXT_LENGTH = 5000  # 문서에서 읽어들일 최대 글자 수 (너무 긴 문서는 분석 부담이 커서 제한)
-FUZZY_MATCH_THRESHOLD = 80  # 키워드 유사도 매칭 임계값 (0-100, 높을수록 엄격)

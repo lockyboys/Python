@@ -1,266 +1,169 @@
-# [utils.py] - 공통 도구 및 정밀 진단 시스템 (v17)
-import os
-import config
+import gc
+import logging
 import shutil
-import traceback
-import re
-import time
-
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
-# --------------------------------
-# [개선] 로그 파일 경로 관리 및 오류 기록 개선 (v17 - Expert Fix)
-# [개선] 로그 파일 경로를 전역 변수로 관리하여 일관된 기록 보장
-# [개선] log_error 함수 개선하여 상세 오류 기록 및 예외 처리 강화
-# [개선] get_log_path 함수 추가하여 로그 파일 경로 생성 및 관리
-# --------------------------------
-_current_log_file = None    # 현재 실행 세션의 로그 파일 경로 (초기값 None)
-# --------------------------------
-# [복구] 파일명에서 날짜/시간 패턴1 제거 함수 (v17 - Expert Fix11)
-# [개선] 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거하는 함수 추가
-# [개선] 정규표현식을 사용하여 다양한 날짜/시간 패턴을 제거하도록 개선
-# --------------------------------  
-def cleaning_filename(filename):
-    """ 파일명에서 반복되는 날짜/시간 패턴(_20260523_...)을 찾아 제거합니다.
-        photo.jpg.jpg.jpg -> photo.jpg
-        document.pdf.pdf -> document.pdf
-    """
-    # 파일명과 확장자 분리
-    
+import config
 
-    # 8자리 날짜와 6자리 시간 패턴 (_20240101_123456 또는 _123456 등)을 매칭
-    # 정규표현식: _20\d{6} (날짜) 또는 _\d{6} (시간)이 반복되는 것을 찾음
-    pattern = r'(_20\d{6}|_\d{6})'
-    cleaned = re.sub(pattern, '', filename)
+MOVED_FILES_REGISTRY = {}
 
-    # 반복 확장자 제거
-    pattern = r'(\.[a-zA-Z0-9]+)(\1)+$'
-    cleaned = re.sub(pattern, '', filename)
 
-    return cleaned
-# --------------------------------
-# [복구] log_error 함수 개선 (v17 - Expert Fix)
-# [개선] log_error 함수 개선하여 상세 오류 기록 및 예외 처리 강화
-# [개선] get_log_path 함수 추가하여 로그 파일 경로 생성 및 관리
-# --------------------------------
-def log_error(message, include_traceback=True):
-    """오류 내용을 로그 파일에 상세히 기록합니다. (이전 버전 호환성 유지)"""
-    try:
-        if not config.LoG_FILE_YN: return
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(get_log_path(), "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] [ERROR] {message}\n")
-            if include_traceback:
-                f.write(traceback.format_exc())
-                f.write("-" * 50 + "\n")
-    except Exception as e:
-        print(f"⚠️ 에러 로그 기록 실패: {e}")
-        pass
-# --------------------------------
-# log_message 함수 추가 (일반 메시지 기록용)
-# [개선] log_message 함수 추가하여 일반 메시지를 로그 파일에 기록할 수 있도록 개선
-# [개선] 로그 메시지 기록 시 타임스탬프와 레벨을 함께 기록하도록 개선
-# [개선] 로그 메시지 기록 실패 시 예외 처리 강화
-# --------------------------------
-def log_message(message, level="INFO"):
-    """일반 메시지를 로그 파일에 기록합니다."""
-    try:
-        if not config.LoG_FILE_YN: return 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(get_log_path(), "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] [{level}] {message}\n")
-    except Exception as e:
-        print(f"⚠️ 로그 메시지 기록 실패: {e}")
-        pass
-# --------------------------------
-# get_log_path 함수 추가 (로그 파일 경로 관리)
-# [개선] get_log_path 함수 추가하여 로그 파일 경로 생성 및 관리
-# [개선] 로그 파일은 실행 시점에 한 번 생성되며, 이후 모든 로그 기록은 이 파일에 일관되게 기록됩니다.
-# [개선] 로그 파일 생성 시점에 타임스탬프를 포함하여 고유한 파일명을 생성하도록 개선
-# [개선] 로그 파일 생성 실패 시 예외 처리 강화
-# --------------------------------
-def get_log_path():
-    global _current_log_file
-    if _current_log_file is None:
-        now = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_dir = Path(config.BASE_LOG_DIR)
-        try: base_dir.mkdir(parents=True, exist_ok=True)
-        except: base_dir = Path.cwd()
-        _current_log_file = base_dir / f"{config.LOG_FILE_PREFIX}_{now}.txt"
-    return _current_log_file
-# --------------------------------
-# 문서 분석 라이브러리 로드 시도 및 상태 플래그 설정 (v17 - Expert Fix)
-# [개선] 라이브러리 로드 실패 시에도 시스템이 계속 작동하도록 예외 처리 강화
-# [개선] 각 라이브러리 로드 시 상세 오류 로그 기록
-# [개선] 문서 분석에 필요한 라이브러리 로드 시도 및 상태 플래그 설정 
-# --------------------------------
-def is_excluded(item_path):
-    """파일 이름 및 상위 모든 경로에 대해 제외 목록 포함 여부를 완벽하게 검사합니다."""
-    path_obj = Path(item_path).absolute()
-    # 1. 제외 목록 정규화 (대소문자 무시, 공백 제거)
-    clean_exclude = [str(ex).strip().lower() for ex in config.EXCLUDE_LIST]
-    # 2. 파일 이름 체크
-    if path_obj.name.lower() in clean_exclude: return True
-    # 3. 경로의 모든 구성 요소 체크 (상위 폴더들)
-    for part in path_obj.parts:
-        if part.lower() in clean_exclude: return True
-    # 4. 전체 경로 문자열 내 포함 여부 체크 (부분 일치)
-    full_path_str = str(path_obj).lower()
-    for ex in clean_exclude:
-        if ex and ex in full_path_str: return True
+def setup_logging_pipeline() -> None:
+    """로그 파일과 콘솔 출력 파이프라인을 한 번만 초기화합니다."""
+    if not config.LOG_FILE_YN:
+        return
+
+    log_dir = Path(config.BASE_LOG_DIR)
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    logger = logging.getLogger()
+    if logger.handlers:
+        return
+
+    if config.LOG_DATE_YN:
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{config.LOG_FILE_PREFIX}_{current_time}.log"
+    else:
+        filename = f"{config.LOG_FILE_PREFIX}.log"
+
+    full_log_path = log_dir / filename
+    config.LOG_FILE_NAME = str(full_log_path)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[
+            logging.FileHandler(config.LOG_FILE_NAME, encoding="utf-8"),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
+
+
+def log_message(msg: str) -> None:
+    setup_logging_pipeline()
+    logging.info(msg)
+
+
+def log_error(msg: str, critical: bool = False) -> None:
+    setup_logging_pipeline()
+    if critical:
+        logging.critical("[CRITICAL ERROR] %s", msg)
+    else:
+        logging.error("[ERROR] %s", msg)
+
+
+def is_protected_zone(path: Path | str) -> bool:
+    """Windows 시스템 경로처럼 건드리면 위험한 위치인지 확인합니다."""
+    low_path = str(path).lower()
+    return any(keyword in low_path for keyword in config.SYSTEM_PROTECTED_KEYWORDS)
+
+
+def should_skip(path: Path) -> bool:
+    """이미 이동했거나 제외 대상인 파일은 다시 처리하지 않도록 거릅니다."""
+    if not path.exists():
+        return True
+    if path.name in config.EXCLUDE_LIST:
+        return True
+    if is_protected_zone(path):
+        return True
+    if str(path) in MOVED_FILES_REGISTRY or path in MOVED_FILES_REGISTRY.values():
+        return True
     return False
-# --------------------------------
-# 시스템 상태 정밀 진단 함수 (v17 - Expert Fix)
-# [개선] 시스템 상태 정밀 진단 함수 추가하여 라이브러리 및 하드웨어 상태를 상세히 보고하도록 개선
-# [개선] 진단 보고서에는 스캔 및 제어 설정, GPU/CUDA/TensorFlow 상태, OpenCV 상태, OCR 엔진 상태, 문서 분석 라이브러리 상태 등이 포함됩니다.
-# [개선] 진단 과정에서 발생하는 오류는 상세히 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
-# --------------------------------
-def get_system_status():
-    """모든 라이브러리 및 하드웨어 상태를 정밀 진단하여 보고합니다."""
-    report = []
-    report.append("=" * 60)
-    report.append(f"🖥️ 시스템 정밀 진단 보고서 ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
-    report.append("-" * 60)
-    
-    # 1. 스캔 및 제어 설정
-    report.append(f"[스캔 모드] {'Deep Scan (하위 포함)' if config.RECURSIVE_SCAN else 'Quick Scan (현재 폴더만)'}")
-    report.append(f"[해체 모드] {'UNPACK ALL (전체 해체)' if config.UNPACK_ALL else '구조 유지'}")
-    report.append(f"[출력 모드] {'실시간 중계 활성' if config.SHOW_PROGRESS else '로그만 기록'}")
-    report.append(f"[로그 경로] {config.LOG_FILE_PATH}")
-    report.append(f"[보호 목록] {config.EXCLUDE_LIST}")
-    
-    # 2. GPU / CUDA / TensorFlow
-    try:
-        import tensorflow as tf
-        report.append(f"[TensorFlow] 버전 {tf.__version__} - \t\t\t\t✅ 로드 성공")
-        gpus = tf.config.list_physical_devices('GPU')
-        if gpus:
-            report.append(f"[GPU/CUDA] \t\t\t\t\t✅ NVIDIA GPU {len(gpus)}개 감지됨")
-            for i, gpu in enumerate(gpus):
-                report.append(f"   - 장치 [{i}]: {gpu.name}")
-            report.append("[cuDNN] \t\t\t\t\t\t✅ 가속 엔진 준비 완료")
-        else:
-            report.append("[GPU/CUDA] \t\t\t\t\tℹ️ GPU 미감지 (CPU 모드로 작동)")
-    except Exception as e:
-        report.append(f"[TensorFlow/GPU] \t\t\t\t\t❌ 진단 실패: {e}")
 
-    # 3. OpenCV / 미디어
-    try:
-        import cv2
-        report.append(f"[OpenCV] 버전 {cv2.__version__} - \t\t\t\t\t✅ 정상")
-    except Exception as e:
-        report.append(f"[OpenCV] \t\t\t\t\t\t❌ 로드 실패: {e}")
 
-    # 4. OCR 엔진
-    try:
-        import pytesseract
-        ver = pytesseract.get_tesseract_version()
-        report.append(f"[Tesseract OCR] 버전 {ver} - \t✅ 정상")
-    except Exception as e:
-        report.append(f"[Tesseract OCR] \t\t\t\t\t\t❌ 엔진 미설치 또는 로드 실패: {e}")
+def unique_destination(source_file: Path, target_folder: Path) -> Path:
+    """대상 폴더에 같은 이름이 있으면 _1, _2를 붙인 안전한 경로를 만듭니다."""
+    destination_path = target_folder / source_file.name
+    if not destination_path.exists():
+        return destination_path
 
-    # 5. 문서 분석 라이브러리
-    doc_libs = {"PyMuPDF(fitz)": "fitz", "python-docx": "docx", "openpyxl": "openpyxl", "python-pptx": "pptx", "olefile": "olefile"}
-    for name, mod in doc_libs.items():
+    if source_file.stat().st_size == destination_path.stat().st_size:
+        return destination_path
+
+    idx = 1
+    while True:
+        destination_path = target_folder / f"{source_file.stem}_{idx}{source_file.suffix}"
+        if not destination_path.exists():
+            return destination_path
+        idx += 1
+
+
+def move_file_safe(source_file: Path, target_folder: Path) -> Path:
+    """파일 이동을 수행하고, 실패하면 복사 후 원본 삭제 방식으로 한 번 더 시도합니다."""
+    if not source_file.exists():
+        return source_file
+
+    target_folder.mkdir(parents=True, exist_ok=True)
+    destination_path = unique_destination(source_file, target_folder)
+
+    if destination_path.exists() and source_file.stat().st_size == destination_path.stat().st_size:
+        log_message(f"[중복 삭제] 같은 크기의 파일이 이미 있음: {source_file.name}")
         try:
-            __import__(mod)
-            report.append(f"[{name}] \t\t\t\t\t\t✅ 설치됨")
-        except:
-            report.append(f"[{name}] \t\t\t\t\t\t⚠️ 미설치 (해당 포맷 분석 불가)")
-    report.append("PDF 분석 라이브러리(fitz) 로드 상태 : OK" if config.PDF_READY else "PDF 분석 라이브러리(fitz) 로드 상태 : No")
-    report.append("Word 분석 라이브러리(docx) 로드 상태 : OK" if config.DOCX_READY else "Word 분석 라이브러리(docx) 로드 상태 : No")
-    report.append("Excel 분석 라이브러리(openpyxl) 로드 상태 : OK" if config.EXCEL_READY else "Excel 분석 라이브러리(openpyxl) 로드 상태 : No")
-    report.append("PPT 분석 라이브러리(pptx) 로드 상태 : OK" if config.PPT_READY else "PPT 분석 라이브러리(pptx) 로드 상태 : No")
-    report.append("HWP 분석 라이브러리(olefile) 로드 상태 : OK" if config.HWP_READY else "HWP 분석 라이브러리(olefile) 로드 상태 : No")
-    report.append("=" * 60)
-    full_report = "\n".join(report)
-    print(full_report)
-    log_message("\n" + full_report, "DIAGNOSTIC")
-    return full_report
-# --------------------------------
-# 파일 이동 함수 개선 (v17 - Expert Fix)
-# [개선] move_file 함수 개선하여 파일 이동 시 중복 이름 처리 및 예외 처리 강화
-# [개선] 이동 전 최종적으로 한 번 더 제외 체크 수행
-# [개선] 파일명에서 날짜/시간 패턴 제거하여 깔끔한 이름으로 이동
-# [개선] 목적지에 이미 파일이 존재할 경우, 최신 시간 패턴을 붙여 중복 방지
-# [개선] 파일 이동 시 재시도 로직 추가하여 일시적인 파일 잠금 문제 해결
-# [개선] 이동 성공 시 화면 출력 여부 결정 및 로그 파일에 이동 기록 저장
-# [개선] 이동 실패 시 상세 오류 메시지 출력 및 로그 기록 강화
-# --------------------------------
-def move_file(source, dest_dir):
-    """파일 이동 (중복 시 기존 시간 제거 후 최신 시간 1개만 유지)"""
-    try:
-        # [핵심] 이동 전 최종적으로 한 번 더 체크
-        if is_excluded(source): return
-        
-        if source.name in config.EXCLUDE_LIST: return # 파일명 자체가 제외 리스트에 있는 경우 (안전망)
+            source_file.unlink()
+        except OSError as exc:
+            log_error(f"중복 파일 삭제 실패 [{source_file.name}] - {exc}")
+        return destination_path
 
-        if dest_dir.name in config.EXCLUDE_LIST: return # 대상 폴더명이 제외 리스트에 있는 경우 (안전망)
-        # 1. 원본 파일명에서 지저분한 이전 시간 패턴 제거
-        dest_dir.mkdir(parents=True, exist_ok=True) # 대상 폴더가 없으면 생성 (중간 폴더도 함께)
-        clean_filename = cleaning_filename(source.stem) # 파일명에서 날짜/시간 패턴 제거
-        dest = dest_dir / f"{clean_filename}{source.suffix}" # 최종 대상 경로 (날짜/시간 패턴 제거된 이름)
-
-        # 2. 목적지에 이미 파일이 있다면 최신 시간 하나만 붙임
-        if dest.exists():
-            now = datetime.now().strftime("%H%M%S")
-            dest = dest_dir / f"{clean_filename}_{now}{source.suffix}"        
-        
-        # 3. 파일 이동 (재시도 로직 포함)
-        max_retries = 3
-        for i in range(max_retries):
+    for attempt in range(1, 4):
+        try:
+            gc.collect()
+            shutil.move(str(source_file), str(destination_path))
+            MOVED_FILES_REGISTRY[str(source_file)] = destination_path
+            log_message(f"[이동 성공] {source_file.name} -> {target_folder.name}")
+            return destination_path
+        except OSError as exc:
+            if attempt < 3:
+                continue
             try:
-                shutil.move(str(source), str(dest))
-                # - 1. 화면(콘솔) 출력 여부 결정
-                status_msg = f"✅ {source.name} -> {dest_dir.name}/{dest.name} "
-                if config.SHOW_PROGRESS:
-                    print(status_msg)
-                
-                # - 2. 로그 파일에 이동 기록 저장 (항상 기록)
-                log_message(f"MOVE_SUCCESS: {source.absolute()} -> {dest.absolute()}")
-                return
-            except PermissionError:
-                if i < max_retries - 1: time.sleep(1)
-                else: raise
-    except Exception as e:
-        msg = f"이동 오류 ({source.name}): {str(e)}"
-        print(f"❌ {msg}")
-        log_error(msg)
-# --------------------------------
-# 빈 폴더 마킹 함수 개선 (v17 - Expert Fix)
-# [개선] mark_empty_folders 함수 개선하여 빈 폴더를 찾아 '_빈폴더' 마킹 추가
-# [개선] 경로 전체를 체크하여 제외 폴더 내 파일 보호
-# [개선] 빈 폴더 마킹 시 기존 이름이 날짜/시간 패턴으로 끝나는 경우, 패턴 제거 후 마킹하도록 개선
-# [개선] 빈 폴더 마킹 시 이미 '_빈폴더'로 끝나는 경우는 건너뛰도록 개선
-# [개선] 빈 폴더 마킹 시 이름이 숫자로 시작하고 '_'를 포함하는 경우는 원래 분류된 폴더로 간주하여 마킹에서 제외하도록 개선
-# [개선] 빈 폴더 마킹 중 오류 발생 시 상세 오류 메시지 출력 및 로그 기록 강화
-# --------------------------------
-def mark_empty_folders(target_path):
-    """빈 폴더를 찾아 '_빈폴더' 마킹 추가"""
-    try:
-        for root, dirs, files in os.walk(target_path, topdown=False):
-            for d in dirs:
-                dir_path = Path(root) / d
-                if is_excluded(dir_path): continue
-                if not d.endswith("_빈폴더") and not any(dir_path.iterdir()):
-                    if d[:2].isdigit() and "_" in d: continue
-                    new_name = dir_path.parent / f"{d}_빈폴더"
-                    try:
-                        dir_path.rename(new_name)
-                        print(f"📁 빈 폴더 마킹: {d} -> {new_name.name}")
-                    except: pass
-    except Exception as e:
-        log_error(f"빈 폴더 마킹 중 오류: {e}")
-# --------------------------------
-# 경로 유효성 검사 함수 추가 (v17 - Expert Fix)
-# [개선] validate_path 함수 추가하여 입력된 경로의 유효성을 검사하도록 개선
-# [개선] 경로가 존재하지 않거나 접근할 수 없는 경우 None을 반환하도록 개선
-# [개선] 경로 검사 중 발생하는 오류는 상세히 로그에 기록하되, 시스템이 계속 작동하도록 예외 처리 강화
-# --------------------------------
-def validate_path(path_str):
-    try:
-        if not path_str: return None
-        p = Path(path_str)
-        return p if p.exists() else None
-    except: return None
+                shutil.copy2(str(source_file), str(destination_path))
+                source_file.unlink()
+                MOVED_FILES_REGISTRY[str(source_file)] = destination_path
+                log_message(f"[복사 후 삭제] {source_file.name} -> {target_folder.name}")
+                return destination_path
+            except OSError as copy_exc:
+                log_error(f"파일 이동 실패 [{source_file.name}] - {exc} / {copy_exc}")
+                return source_file
+
+
+def target_folder_by_extension(file_path: Path) -> str:
+    """확장자 기준으로 파일이 들어갈 기본 분류 폴더를 반환합니다."""
+    ext = file_path.suffix.lower()
+    for folder, extensions in config.EXTENSION_RULES.items():
+        if ext in extensions:
+            return folder
+    return config.DEFAULT_OTHER_FOLDER
+
+
+def dispatch_file_to_isolation(source_file: Path, base_isolation_path: Path) -> Path:
+    """하위 폴더 파일을 원본 격리 폴더 안의 종류별 폴더로 보냅니다."""
+    folder = target_folder_by_extension(source_file)
+    return move_file_safe(source_file, base_isolation_path / folder)
+
+
+def collect_target_files_recursively(root_dir: Path, result_base_path: Path) -> list[Path]:
+    """정리 대상 폴더에서 처리할 파일만 재귀적으로 수집합니다."""
+    collected = []
+    ignored_parts = {
+        config.RESULT_FOLDER_NAME,
+        config.ISOLATION_FOLDER_NAME,
+        "Logs",
+    }
+
+    for path in root_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in ignored_parts for part in path.parts):
+            continue
+        if should_skip(path):
+            continue
+        try:
+            path.relative_to(result_base_path)
+            continue
+        except ValueError:
+            pass
+        collected.append(path)
+
+    return collected
